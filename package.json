@@ -1,0 +1,28 @@
+{
+  "name": "autocomm-platform",
+  "version": "1.0.0",
+  "description": "AutoComm - Multi-Tenant Auto Calling & Messaging Platform",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "client-app",
+    "superadmin-app"
+  ],
+  "scripts": {
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:worker": "npm --prefix backend run worker",
+    "dev:client": "npm --prefix client-app run dev",
+    "dev:superadmin": "npm --prefix superadmin-app run dev",
+    "seed": "npm --prefix backend run seed",
+    "test": "npm --prefix backend run test"
+  },
+  "keywords": [
+    "saas",
+    "whatsapp",
+    "voice-ai",
+    "multitenant",
+    "autocomm"
+  ],
+  "author": "AutoComm Engineering Team",
+  "license": "ISC"
+}

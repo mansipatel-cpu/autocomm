@@ -1,0 +1,98 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: autocomm-mongodb
+    restart: always
+    ports:
+      - '27017:27017'
+    volumes:
+      - mongo-data:/data/db
+    environment:
+      MONGO_INITDB_DATABASE: autocomm
+
+  redis:
+    image: redis:7-alpine
+    container_name: autocomm-redis
+    restart: always
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis-data:/data
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: autocomm-backend
+    restart: always
+    ports:
+      - '5000:5000'
+    environment:
+      - NODE_ENV=development
+      - PORT=5000
+      - MONGODB_URI=mongodb://mongodb:27017/autocomm
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      - mongodb
+      - redis
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: autocomm-worker
+    command: npm run worker
+    restart: always
+    environment:
+      - NODE_ENV=development
+      - MONGODB_URI=mongodb://mongodb:27017/autocomm
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      - mongodb
+      - redis
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+
+  client-app:
+    build:
+      context: ./client-app
+      dockerfile: Dockerfile
+    container_name: autocomm-client-app
+    restart: always
+    ports:
+      - '5173:5173'
+    environment:
+      - VITE_API_URL=http://localhost:5000/api/v1
+    depends_on:
+      - backend
+    volumes:
+      - ./client-app:/app
+      - /app/node_modules
+
+  superadmin-app:
+    build:
+      context: ./superadmin-app
+      dockerfile: Dockerfile
+    container_name: autocomm-superadmin-app
+    restart: always
+    ports:
+      - '5174:5174'
+    environment:
+      - VITE_API_URL=http://localhost:5000/api/v1/superadmin
+    depends_on:
+      - backend
+    volumes:
+      - ./superadmin-app:/app
+      - /app/node_modules
+
+volumes:
+  mongo-data:
+  redis-data:
