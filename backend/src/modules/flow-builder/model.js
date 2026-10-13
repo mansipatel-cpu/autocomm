@@ -21,14 +21,36 @@ const conversationFlowSchema = new mongoose.Schema(
       type: String,
       default: 'Global System Template',
     },
+    voiceAgentId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Agent',
+      default: null,
+    },
+    voiceAgentName: {
+      type: String,
+      default: '',
+    },
+    assignedPhoneNumber: {
+      type: String,
+      default: '',
+    },
+    status: {
+      type: String,
+      enum: ['DRAFT', 'ACTIVE', 'INACTIVE'],
+      default: 'ACTIVE',
+    },
+    effectiveDate: {
+      type: Date,
+      default: Date.now,
+    },
     nodes: {
       type: Array,
       default: [
-        { id: '1', type: 'trigger', label: 'Call Started', position: { x: 100, y: 100 } },
-        { id: '2', type: 'speech', label: 'Greeting & Qualification', position: { x: 100, y: 220 } },
-        { id: '3', type: 'decision', label: 'Customer Interested?', position: { x: 100, y: 340 } },
-        { id: '4', type: 'action', label: 'Schedule Calendar Demo', position: { x: 260, y: 460 } },
-        { id: '5', type: 'speech', label: 'Polite Farewell & Log', position: { x: -40, y: 460 } },
+        { id: '1', type: 'message', label: 'Welcome Message', prompt: 'Hello! Thanks for reaching out to AutoComm.', position: { x: 100, y: 100 } },
+        { id: '2', type: 'question', label: 'Inquiry Intent', question: 'How can I assist your team today?', position: { x: 100, y: 220 } },
+        { id: '3', type: 'condition', label: 'Check Intent', condition: 'intent == "support"', position: { x: 100, y: 340 } },
+        { id: '4', type: 'appointment', label: 'Book Demo Slot', calendarId: 'primary', position: { x: 260, y: 460 } },
+        { id: '5', type: 'transfer', label: 'Transfer to Specialist', destinationNumber: '+18005550199', position: { x: -40, y: 460 } },
       ],
     },
     edges: {
@@ -36,8 +58,8 @@ const conversationFlowSchema = new mongoose.Schema(
       default: [
         { id: 'e1-2', source: '1', target: '2' },
         { id: 'e2-3', source: '2', target: '3' },
-        { id: 'e3-4', source: '3', target: '4', label: 'Yes / Interested' },
-        { id: 'e3-5', source: '3', target: '5', label: 'No / Busy' },
+        { id: 'e3-4', source: '3', target: '4', label: 'Sales / Demo' },
+        { id: 'e3-5', source: '3', target: '5', label: 'Technical Support' },
       ],
     },
     isPublished: {

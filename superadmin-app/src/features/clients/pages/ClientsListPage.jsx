@@ -3,18 +3,26 @@ import {
   Building2,
   Plus,
   Search,
-  MoreVertical,
   CheckCircle,
   XCircle,
   AlertTriangle,
-  RefreshCw,
   KeyRound,
   Trash2,
   Mail,
+  Eye,
+  Edit,
+  Hash,
+  Coins,
   Shield,
+  Send,
 } from 'lucide-react';
 import { superAdminApiClient } from '../../../shared/api/client';
 import { CreateClientModal } from '../components/CreateClientModal';
+import { EditClientModal } from '../components/EditClientModal';
+import { ClientDetailsModal } from '../components/ClientDetailsModal';
+import { ManageClientPhonesModal } from '../components/ManageClientPhonesModal';
+import { ManageCreditsModal } from '../../dashboard/components/ManageCreditsModal';
+import { ConfirmationModal } from '../../../shared/components/ConfirmationModal';
 
 export const ClientsListPage = () => {
   const [clients, setClients] = useState([]);
@@ -22,13 +30,27 @@ export const ClientsListPage = () => {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [planFilter, setPlanFilter] = useState('all');
+  const [creditFilter, setCreditFilter] = useState('all');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
 
+  // Modals state
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [activeMenuId, setActiveMenuId] = useState(null);
+  const [detailsClient, setDetailsClient] = useState(null);
+  const [editingClient, setEditingClient] = useState(null);
+  const [managingPhonesClient, setManagingPhonesClient] = useState(null);
+  const [isCreditsModalOpen, setIsCreditsModalOpen] = useState(false);
   const [actionMessage, setActionMessage] = useState('');
+
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    confirmText: 'Confirm',
+    isDanger: true,
+    onConfirm: () => {},
+  });
 
   const fetchClients = async () => {
     setLoading(true);
@@ -42,10 +64,20 @@ export const ClientsListPage = () => {
           limit: 10,
         },
       });
-      const data = res.data.data;
-      setClients(data.clients);
-      setTotalPages(data.totalPages);
-      setTotal(data.total);
+      let clientList = res.data.data.clients || [];
+
+      // Optional frontend credit filter
+      if (creditFilter === 'zero') {
+        clientList = clientList.filter((c) => (c.credits || 0) <= 0);
+      } else if (creditFilter === 'low') {
+        clientList = clientList.filter((c) => (c.credits || 0) > 0 && (c.credits || 0) <= 500);
+      } else if (creditFilter === 'normal') {
+        clientList = clientList.filter((c) => (c.credits || 0) > 500);
+      }
+
+      setClients(clientList);
+      setTotalPages(res.data.data.totalPages || 1);
+      setTotal(res.data.data.total || 0);
     } catch (err) {
       console.error('Failed to load clients', err);
     } finally {
@@ -55,37 +87,83 @@ export const ClientsListPage = () => {
 
   useEffect(() => {
     fetchClients();
-  }, [search, statusFilter, planFilter, page]);
+  }, [search, statusFilter, planFilter, creditFilter, page]);
 
   const handleStatusChange = async (clientId, newStatus) => {
     try {
       await superAdminApiClient.patch(`/clients/${clientId}/status`, { status: newStatus });
-      setActionMessage(`Client status set to ${newStatus}`);
+      setActionMessage(`Client status updated to ${newStatus}`);
       fetchClients();
     } catch (err) {
       alert('Failed to update status');
     }
   };
 
-  const handleResetPassword = async (clientId) => {
-    if (!confirm('Are you sure you want to reset this client admin password and send new credentials?')) return;
-    try {
-      const res = await superAdminApiClient.post(`/clients/${clientId}/reset-password`);
-      alert(`Password reset successfully!\nNew temporary password: ${res.data.data.temporaryPassword}\nCredentials have been emailed.`);
-    } catch (err) {
-      alert('Failed to reset password');
-    }
+  const handleResendCredentials = (client) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Resend Client Admin Credentials',
+      message: `Send an email with workspace access credentials to ${client.adminEmail}?`,
+      confirmText: 'Send Credentials',
+      isDanger: false,
+      onConfirm: async () => {
+        try {
+          const res = await superAdminApiClient.post(`/clients/${client._id}/resend-credentials`);
+          const tempPass = res.data?.data?.temporaryPassword;
+          setActionMessage(
+            `Credentials resent to ${client.adminEmail}.${tempPass ? ` New Temporary Password: ${tempPass}` : ''}`
+          );
+        } catch (err) {
+          alert(err.response?.data?.message || err.response?.data?.error || 'Failed to resend credentials');
+        } finally {
+          setConfirmModal((prev) => ({ ...prev, isOpen: false }));
+        }
+      },
+    });
   };
 
-  const handleDeleteClient = async (clientId) => {
-    if (!confirm('WARNING: Are you sure you want to permanently delete this client and all tenant records?')) return;
-    try {
-      await superAdminApiClient.delete(`/clients/${clientId}`);
-      setActionMessage('Client removed successfully');
-      fetchClients();
-    } catch (err) {
-      alert('Failed to delete client');
-    }
+  const handleResetPassword = (clientId) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Reset Client Password',
+      message: 'Are you sure you want to reset this client admin password and send new credentials to their registered email?',
+      confirmText: 'Reset Password',
+      isDanger: false,
+      onConfirm: async () => {
+        try {
+          const res = await superAdminApiClient.post(`/clients/${clientId}/reset-password`);
+          const tempPass = res.data?.data?.temporaryPassword;
+          setActionMessage(
+            `Password reset successfully for ${res.data.data.email}.${tempPass ? ` New Temporary Password: ${tempPass}` : ''}`
+          );
+        } catch (err) {
+          alert(err.response?.data?.message || err.response?.data?.error || 'Failed to reset password');
+        } finally {
+          setConfirmModal((prev) => ({ ...prev, isOpen: false }));
+        }
+      },
+    });
+  };
+
+  const handleDeleteClient = (clientId) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Delete Client Workspace',
+      message: 'WARNING: Are you sure you want to permanently delete this client and all associated tenant records, users, and channels? This action cannot be undone.',
+      confirmText: 'Delete Client',
+      isDanger: true,
+      onConfirm: async () => {
+        try {
+          await superAdminApiClient.delete(`/clients/${clientId}`);
+          setActionMessage('Client removed successfully');
+          fetchClients();
+        } catch (err) {
+          alert('Failed to delete client');
+        } finally {
+          setConfirmModal((prev) => ({ ...prev, isOpen: false }));
+        }
+      },
+    });
   };
 
   const getStatusBadge = (status) => {
@@ -139,7 +217,7 @@ export const ClientsListPage = () => {
           />
         </div>
 
-        <div className="flex items-center gap-3 w-full md:w-auto">
+        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
           <select
             value={statusFilter}
             onChange={(e) => {
@@ -167,6 +245,20 @@ export const ClientsListPage = () => {
             <option value="Growth">Growth</option>
             <option value="Starter">Starter</option>
           </select>
+
+          <select
+            value={creditFilter}
+            onChange={(e) => {
+              setCreditFilter(e.target.value);
+              setPage(1);
+            }}
+            className="px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-slate-300 focus:outline-none focus:border-indigo-500"
+          >
+            <option value="all">Credits: All</option>
+            <option value="normal">Normal (> 500)</option>
+            <option value="low">Low (1 - 500)</option>
+            <option value="zero">Out of Credits (0)</option>
+          </select>
         </div>
       </div>
 
@@ -180,9 +272,11 @@ export const ClientsListPage = () => {
                 <th className="py-3 px-4">Company Name</th>
                 <th className="py-3 px-4">Admin Email</th>
                 <th className="py-3 px-4">Contact Phone</th>
+                <th className="py-3 px-4">Assigned Phone</th>
                 <th className="py-3 px-4">Plan</th>
                 <th className="py-3 px-4">Credits</th>
                 <th className="py-3 px-4">Status</th>
+                <th className="py-3 px-4">Created Date</th>
                 <th className="py-3 px-4">Last Login</th>
                 <th className="py-3 px-4 text-right">Actions</th>
               </tr>
@@ -190,70 +284,112 @@ export const ClientsListPage = () => {
             <tbody className="divide-y divide-slate-800/60 text-slate-300">
               {loading ? (
                 <tr>
-                  <td colSpan={9} className="py-8 text-center text-slate-500">
+                  <td colSpan={11} className="py-8 text-center text-slate-500">
                     Loading clients...
                   </td>
                 </tr>
               ) : clients.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-8 text-center text-slate-500">
+                  <td colSpan={11} className="py-8 text-center text-slate-500">
                     No client accounts match your criteria.
                   </td>
                 </tr>
               ) : (
-                clients.map((c) => (
-                  <tr key={c._id} className="hover:bg-slate-900/40 transition-colors">
-                    <td className="py-3 px-4 font-mono font-medium text-indigo-400">{c.clientCode}</td>
-                    <td className="py-3 px-4 font-semibold text-white">{c.companyName}</td>
-                    <td className="py-3 px-4 text-slate-400">{c.adminEmail}</td>
-                    <td className="py-3 px-4 text-slate-400">{c.contactNumber}</td>
-                    <td className="py-3 px-4">
-                      <span className="px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-[10px] text-slate-300">
-                        {c.plan}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 font-medium text-white">{c.credits?.toLocaleString() || 0}</td>
-                    <td className="py-3 px-4">{getStatusBadge(c.status)}</td>
-                    <td className="py-3 px-4 text-slate-500">
-                      {c.lastLoginAt ? new Date(c.lastLoginAt).toLocaleDateString() : 'Never'}
-                    </td>
-                    <td className="py-3 px-4 text-right relative">
-                      <div className="flex items-center justify-end gap-1.5">
-                        <button
-                          onClick={() => handleResetPassword(c._id)}
-                          title="Reset Admin Password & Resend"
-                          className="p-1 text-slate-400 hover:text-amber-400 hover:bg-slate-800 rounded transition-colors"
-                        >
-                          <KeyRound className="w-3.5 h-3.5" />
-                        </button>
-                        {c.status === 'active' ? (
+                clients.map((c) => {
+                  const assignedPhone = c.assignedPhoneNumber || (c.phoneNumbers && c.phoneNumbers[0]) || '—';
+                  return (
+                    <tr key={c._id} className="hover:bg-slate-900/40 transition-colors">
+                      <td className="py-3 px-4 font-mono font-medium text-indigo-400">{c.clientCode}</td>
+                      <td className="py-3 px-4 font-semibold text-white">{c.companyName}</td>
+                      <td className="py-3 px-4 text-slate-400">{c.adminEmail}</td>
+                      <td className="py-3 px-4 text-slate-400">{c.contactNumber || '—'}</td>
+                      <td className="py-3 px-4 font-mono text-slate-300">{assignedPhone}</td>
+                      <td className="py-3 px-4">
+                        <span className="px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-[10px] text-slate-300">
+                          {c.plan}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 font-medium text-white">{c.credits?.toLocaleString() || 0}</td>
+                      <td className="py-3 px-4">{getStatusBadge(c.status)}</td>
+                      <td className="py-3 px-4 text-slate-400">
+                        {c.createdAt ? new Date(c.createdAt).toLocaleDateString() : '—'}
+                      </td>
+                      <td className="py-3 px-4 text-slate-500">
+                        {c.lastLoginAt ? new Date(c.lastLoginAt).toLocaleDateString() : 'Never'}
+                      </td>
+                      <td className="py-3 px-4 text-right relative">
+                        <div className="flex items-center justify-end gap-1.5">
+                          {/* View details */}
                           <button
-                            onClick={() => handleStatusChange(c._id, 'suspended')}
-                            title="Suspend Client"
-                            className="p-1 text-slate-400 hover:text-rose-400 hover:bg-slate-800 rounded transition-colors"
+                            onClick={() => setDetailsClient(c)}
+                            title="View Client Details"
+                            className="p-1 text-slate-400 hover:text-indigo-400 hover:bg-slate-800 rounded transition-colors"
                           >
-                            <AlertTriangle className="w-3.5 h-3.5" />
+                            <Eye className="w-3.5 h-3.5" />
                           </button>
-                        ) : (
+                          {/* Edit Client */}
                           <button
-                            onClick={() => handleStatusChange(c._id, 'active')}
-                            title="Activate Client"
+                            onClick={() => setEditingClient(c)}
+                            title="Edit Client"
+                            className="p-1 text-slate-400 hover:text-sky-400 hover:bg-slate-800 rounded transition-colors"
+                          >
+                            <Edit className="w-3.5 h-3.5" />
+                          </button>
+                          {/* Resend Credentials */}
+                          <button
+                            onClick={() => handleResendCredentials(c)}
+                            title="Resend Credentials"
                             className="p-1 text-slate-400 hover:text-emerald-400 hover:bg-slate-800 rounded transition-colors"
                           >
-                            <CheckCircle className="w-3.5 h-3.5" />
+                            <Send className="w-3.5 h-3.5" />
                           </button>
-                        )}
-                        <button
-                          onClick={() => handleDeleteClient(c._id)}
-                          title="Delete Client"
-                          className="p-1 text-slate-400 hover:text-rose-500 hover:bg-slate-800 rounded transition-colors"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                          {/* Manage Phone Numbers */}
+                          <button
+                            onClick={() => setManagingPhonesClient(c)}
+                            title="Manage Assigned Phone Numbers"
+                            className="p-1 text-slate-400 hover:text-rose-400 hover:bg-slate-800 rounded transition-colors"
+                          >
+                            <Hash className="w-3.5 h-3.5" />
+                          </button>
+                          {/* Reset Password */}
+                          <button
+                            onClick={() => handleResetPassword(c._id)}
+                            title="Reset Admin Password & Resend"
+                            className="p-1 text-slate-400 hover:text-amber-400 hover:bg-slate-800 rounded transition-colors"
+                          >
+                            <KeyRound className="w-3.5 h-3.5" />
+                          </button>
+                          {/* Toggle Status */}
+                          {c.status === 'active' ? (
+                            <button
+                              onClick={() => handleStatusChange(c._id, 'suspended')}
+                              title="Suspend Client"
+                              className="p-1 text-slate-400 hover:text-rose-400 hover:bg-slate-800 rounded transition-colors"
+                            >
+                              <AlertTriangle className="w-3.5 h-3.5" />
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleStatusChange(c._id, 'active')}
+                              title="Activate Client"
+                              className="p-1 text-slate-400 hover:text-emerald-400 hover:bg-slate-800 rounded transition-colors"
+                            >
+                              <CheckCircle className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                          {/* Delete */}
+                          <button
+                            onClick={() => handleDeleteClient(c._id)}
+                            title="Delete Client"
+                            className="p-1 text-slate-400 hover:text-rose-500 hover:bg-slate-800 rounded transition-colors"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -285,6 +421,7 @@ export const ClientsListPage = () => {
         </div>
       </div>
 
+      {/* Modals */}
       <CreateClientModal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
@@ -293,6 +430,57 @@ export const ClientsListPage = () => {
           setActionMessage('New client tenant account provisioned successfully.');
         }}
       />
+
+      <ClientDetailsModal
+        isOpen={!!detailsClient}
+        client={detailsClient}
+        onClose={() => setDetailsClient(null)}
+        onManageCredits={(cl) => {
+          setDetailsClient(null);
+          setIsCreditsModalOpen(true);
+        }}
+        onManagePhones={(cl) => {
+          setDetailsClient(null);
+          setManagingPhonesClient(cl);
+        }}
+      />
+
+      <EditClientModal
+        isOpen={!!editingClient}
+        client={editingClient}
+        onClose={() => setEditingClient(null)}
+        onClientUpdated={() => {
+          fetchClients();
+          setActionMessage('Client updated successfully.');
+        }}
+      />
+
+      <ManageClientPhonesModal
+        isOpen={!!managingPhonesClient}
+        client={managingPhonesClient}
+        onClose={() => setManagingPhonesClient(null)}
+        onUpdated={() => {
+          fetchClients();
+          setActionMessage('Assigned carrier phone numbers updated.');
+        }}
+      />
+
+      <ManageCreditsModal
+        isOpen={isCreditsModalOpen}
+        onClose={() => setIsCreditsModalOpen(false)}
+        onUpdated={fetchClients}
+      />
+
+      <ConfirmationModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal((prev) => ({ ...prev, isOpen: false }))}
+        onConfirm={confirmModal.onConfirm}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmText={confirmModal.confirmText}
+        isDanger={confirmModal.isDanger}
+      />
     </div>
   );
 };
+

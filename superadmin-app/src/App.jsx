@@ -10,6 +10,8 @@ import { EmailTemplatesPage } from './features/email-templates/pages/EmailTempla
 import { FlowBuilderPage } from './features/flow-builder/pages/FlowBuilderPage';
 import { MonitoringPage } from './features/monitoring/pages/MonitoringPage';
 import { PlatformReportsPage } from './features/reports/pages/PlatformReportsPage';
+import { PhoneNumbersPage } from './features/phone-numbers/pages/PhoneNumbersPage';
+import { IncomingConnectionsPage } from './features/incoming-connections/pages/IncomingConnectionsPage';
 
 const PlaceholderSuperAdmin = ({ title, desc }) => (
   <div className="bg-[#0f172a] border border-slate-800 rounded-xl p-8 text-center space-y-2">
@@ -52,6 +54,8 @@ export const App = () => {
             <Route path="clients" element={<ClientsListPage />} />
             <Route path="client-users" element={<ClientUsersPage />} />
             <Route path="email-templates" element={<EmailTemplatesPage />} />
+            <Route path="phone-numbers" element={<PhoneNumbersPage />} />
+            <Route path="incoming-connections" element={<IncomingConnectionsPage />} />
             <Route path="flow-builder" element={<FlowBuilderPage />} />
             <Route path="monitoring/*" element={<MonitoringPage />} />
             <Route path="reports" element={<PlatformReportsPage />} />

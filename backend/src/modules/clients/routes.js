@@ -12,6 +12,9 @@ router.get('/:id', ClientController.getById);
 router.put('/:id', ClientController.update);
 router.patch('/:id/status', ClientController.updateStatus);
 router.post('/:id/reset-password', ClientController.resetPassword);
+router.post('/:id/resend-credentials', ClientController.resendCredentials);
+router.put('/:id/credits', ClientController.manageCredits);
+router.put('/:id/phone-numbers', ClientController.managePhoneNumbers);
 router.delete('/:id', ClientController.delete);
 
 export default router;

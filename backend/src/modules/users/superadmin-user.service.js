@@ -99,6 +99,17 @@ export class SuperAdminUserService {
     return user;
   }
 
+  static async resetPassword(id) {
+    const user = await User.findById(id);
+    if (!user) throw AppError.notFound('User not found');
+    const temporaryPassword = `AC#${crypto.randomBytes(4).toString('hex').toUpperCase()}!`;
+    const passwordHash = await hashPassword(temporaryPassword);
+    user.passwordHash = passwordHash;
+    user.mustChangePassword = true;
+    await user.save();
+    return { success: true, email: user.email, temporaryPassword };
+  }
+
   static async deleteUser(id) {
     const user = await User.findByIdAndDelete(id);
     if (!user) throw AppError.notFound('User not found');

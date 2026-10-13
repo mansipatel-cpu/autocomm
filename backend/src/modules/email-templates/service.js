@@ -143,26 +143,42 @@ export const DEFAULT_EMAIL_TEMPLATES = [
 export class EmailTemplateService {
   static async ensureDefaultTemplates() {
     for (const tpl of DEFAULT_EMAIL_TEMPLATES) {
-      await EmailTemplate.findOneAndUpdate(
-        { name: tpl.name },
-        { $setOnInsert: tpl },
-        { upsert: true, new: true }
-      );
+      const existing = await EmailTemplate.findOne({ name: tpl.name }).catch(() => null);
+      if (!existing) {
+        await EmailTemplate.create({
+          slug: tpl.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+          name: tpl.name,
+          subject: tpl.subject,
+          htmlBody: tpl.bodyHtml,
+          bodyHtml: tpl.bodyHtml,
+          textBody: tpl.bodyHtml.replace(/<[^>]*>?/gm, '').trim(),
+          variables: tpl.variables,
+          isActive: true,
+          isSystem: true,
+        }).catch(() => {});
+      }
     }
   }
 
   static async listTemplates() {
-    await this.ensureDefaultTemplates();
+    await this.ensureDefaultTemplates().catch(() => {});
     return EmailTemplate.find().sort({ isSystem: -1, name: 1 });
   }
 
   static async getTemplateByName(name) {
-    let tpl = await EmailTemplate.findOne({ name });
+    let tpl = await EmailTemplate.findOne({ name }).catch(() => null);
     if (!tpl) {
-      await this.ensureDefaultTemplates();
-      tpl = await EmailTemplate.findOne({ name });
+      const defaultTpl = DEFAULT_EMAIL_TEMPLATES.find((t) => t.name === name);
+      if (defaultTpl) {
+        await this.ensureDefaultTemplates().catch(() => {});
+        return {
+          ...defaultTpl,
+          subject: defaultTpl.subject,
+          bodyHtml: defaultTpl.bodyHtml,
+        };
+      }
     }
-    return tpl;
+    return tpl ? { ...tpl, bodyHtml: tpl.bodyHtml || tpl.htmlBody } : null;
   }
 
   static async getTemplateById(id) {
@@ -179,6 +195,47 @@ export class EmailTemplateService {
     );
     if (!tpl) throw AppError.notFound('Email template not found');
     return tpl;
+  }
+
+  static async createTemplate(data) {
+    const { name, subject, bodyHtml, variables = [] } = data;
+    if (!name || !subject || !bodyHtml) {
+      throw AppError.badRequest('Template name, subject, and bodyHtml are required');
+    }
+    const existing = await EmailTemplate.findOne({ name });
+    if (existing) {
+      throw AppError.conflict(`An email template named '${name}' already exists.`);
+    }
+    return EmailTemplate.create({
+      name,
+      subject,
+      bodyHtml,
+      variables,
+      isSystem: false,
+      isActive: true,
+    });
+  }
+
+  static async toggleStatus(id) {
+    const tpl = await this.getTemplateById(id);
+    const newStatus = !tpl.isActive;
+    return EmailTemplate.findByIdAndUpdate(
+      id,
+      { $set: { isActive: newStatus } },
+      { new: true }
+    );
+  }
+
+  static async previewTemplate(id, customVariables = {}) {
+    const tpl = await this.getTemplateById(id);
+    const vars = {};
+    (tpl.variables || []).forEach((v) => {
+      vars[v] = customVariables[v] || `[${v.toUpperCase()}]`;
+    });
+    return {
+      subject: EmailService.renderTemplate(tpl.subject, vars),
+      bodyHtml: EmailService.renderTemplate(tpl.bodyHtml, vars),
+    };
   }
 
   static async sendTestEmail(id, recipientEmail) {

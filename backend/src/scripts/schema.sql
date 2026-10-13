@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS clients (
     plan VARCHAR(64) NOT NULL DEFAULT 'Enterprise Scale',
     contact_number VARCHAR(64) NOT NULL,
     admin_email VARCHAR(255) NOT NULL,
+    admin_name VARCHAR(255),
     assigned_phone_numbers JSONB DEFAULT '[]'::jsonb,
     credits NUMERIC(14, 2) NOT NULL DEFAULT 10000.00,
     settings JSONB NOT NULL DEFAULT '{
@@ -281,11 +282,17 @@ CREATE INDEX IF NOT EXISTS idx_messages_timestamp ON messages(timestamp);
 -- 13. Phone Numbers
 CREATE TABLE IF NOT EXISTS phone_numbers (
     id SERIAL PRIMARY KEY,
-    client_id INT NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+    client_id INT REFERENCES clients(id) ON DELETE SET NULL,
     phone_number VARCHAR(64) NOT NULL,
     provider VARCHAR(64) NOT NULL DEFAULT 'Twilio',
     friendly_name VARCHAR(255) DEFAULT '',
+    country VARCHAR(32) DEFAULT 'US',
+    type VARCHAR(32) DEFAULT 'Local',
+    monthly_rate NUMERIC(10, 2) DEFAULT 15.00,
+    forwarding_number VARCHAR(64) DEFAULT '',
+    fallback_number VARCHAR(64) DEFAULT '',
     assigned_agent_id INT REFERENCES agents(id) ON DELETE SET NULL,
+    assigned_agent_name VARCHAR(255) DEFAULT 'Unassigned',
     status VARCHAR(32) NOT NULL DEFAULT 'ACTIVE',
     capabilities JSONB NOT NULL DEFAULT '{"voice": true, "sms": true}'::jsonb,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -341,7 +348,13 @@ CREATE INDEX IF NOT EXISTS idx_crm_leads_stage ON crm_leads(stage);
 -- 16. Conversation Flows (Decision Tree Builder)
 CREATE TABLE IF NOT EXISTS conversation_flows (
     id SERIAL PRIMARY KEY,
-    client_id INT NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+    client_id INT REFERENCES clients(id) ON DELETE SET NULL,
+    assigned_client_id INT REFERENCES clients(id) ON DELETE SET NULL,
+    assigned_client_name VARCHAR(255) DEFAULT 'Global System Template',
+    voice_agent_id INT REFERENCES agents(id) ON DELETE SET NULL,
+    voice_agent_name VARCHAR(255) DEFAULT '',
+    assigned_phone_number VARCHAR(64) DEFAULT '',
+    effective_date TIMESTAMPTZ DEFAULT NOW(),
     name VARCHAR(255) NOT NULL,
     description TEXT DEFAULT '',
     channel_type VARCHAR(64) NOT NULL DEFAULT 'voice',
@@ -353,6 +366,7 @@ CREATE TABLE IF NOT EXISTS conversation_flows (
 );
 
 CREATE INDEX IF NOT EXISTS idx_conversation_flows_client_id ON conversation_flows(client_id);
+CREATE INDEX IF NOT EXISTS idx_conversation_flows_assigned_client_id ON conversation_flows(assigned_client_id);
 
 -- 17. Knowledge Sources (RAG Vector / Knowledge Base)
 CREATE TABLE IF NOT EXISTS knowledge_sources (
@@ -410,9 +424,12 @@ CREATE TABLE IF NOT EXISTS email_templates (
     slug VARCHAR(128) NOT NULL,
     name VARCHAR(255) NOT NULL,
     subject VARCHAR(255) NOT NULL,
-    html_body TEXT NOT NULL,
+    html_body TEXT,
+    body_html TEXT,
     text_body TEXT DEFAULT '',
     variables JSONB NOT NULL DEFAULT '[]'::jsonb,
+    is_active BOOLEAN DEFAULT TRUE,
+    is_system BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -439,3 +456,40 @@ CREATE TABLE IF NOT EXISTS analytics_scripts (
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
     updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
+
+-- Super Admin Audit Logs
+CREATE TABLE IF NOT EXISTS audit_logs (
+    id SERIAL PRIMARY KEY,
+    admin_id VARCHAR(64),
+    admin_email VARCHAR(255),
+    action VARCHAR(64) NOT NULL,
+    resource_type VARCHAR(64) NOT NULL,
+    resource_id VARCHAR(128),
+    details JSONB DEFAULT '{}'::jsonb,
+    ip_address VARCHAR(64),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON audit_logs(action);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_resource ON audit_logs(resource_type, resource_id);
+
+-- 22. Incoming Connections
+CREATE TABLE IF NOT EXISTS incoming_connections (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    provider VARCHAR(64) NOT NULL DEFAULT 'Twilio',
+    client_id INT REFERENCES clients(id) ON DELETE SET NULL,
+    phone_number VARCHAR(64) DEFAULT '',
+    webhook_url TEXT DEFAULT '',
+    status VARCHAR(32) NOT NULL DEFAULT 'ACTIVE',
+    last_activity_at TIMESTAMPTZ DEFAULT NOW(),
+    logs JSONB DEFAULT '[]'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_incoming_connections_client_id ON incoming_connections(client_id);
+CREATE INDEX IF NOT EXISTS idx_incoming_connections_status ON incoming_connections(status);
+
+

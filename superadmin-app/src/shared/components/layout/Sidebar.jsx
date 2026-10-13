@@ -80,6 +80,20 @@ export const Sidebar = () => {
         </NavLink>
 
         <div className="pt-2 pb-1 px-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+          Telephony & Routing
+        </div>
+
+        <NavLink to="/phone-numbers" className={navItemClass('/phone-numbers')}>
+          <Hash className="w-4 h-4" />
+          <span>Phone Numbers</span>
+        </NavLink>
+
+        <NavLink to="/incoming-connections" className={navItemClass('/incoming-connections')}>
+          <Link2 className="w-4 h-4" />
+          <span>Incoming Connections</span>
+        </NavLink>
+
+        <div className="pt-2 pb-1 px-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
           Cross-Tenant Monitoring
         </div>
 
@@ -101,11 +115,6 @@ export const Sidebar = () => {
         <NavLink to="/monitoring/calls" className={navItemClass('/monitoring/calls')}>
           <PhoneCall className="w-4 h-4" />
           <span>Calls & Transcripts</span>
-        </NavLink>
-
-        <NavLink to="/monitoring/phone-numbers" className={navItemClass('/monitoring/phone-numbers')}>
-          <Hash className="w-4 h-4" />
-          <span>Phone Numbers</span>
         </NavLink>
 
         <NavLink to="/reports" className={navItemClass('/reports')}>

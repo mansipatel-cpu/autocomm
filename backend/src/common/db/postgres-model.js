@@ -23,6 +23,8 @@ const TABLE_MAPPINGS = {
   ConversationFlow: 'conversation_flows',
   ApiKey: 'api_keys',
   EmailTemplate: 'email_templates',
+  AuditLog: 'audit_logs',
+  IncomingConnection: 'incoming_connections',
 };
 
 // CamelCase to snake_case converter

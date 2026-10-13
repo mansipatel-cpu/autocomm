@@ -31,12 +31,15 @@ import analyticsRoutes from './modules/analytics/routes.js';
 import apiKeyRoutes from './modules/api-keys/routes.js';
 import flowBuilderRoutes from './modules/flow-builder/routes.js';
 import monitoringRoutes from './modules/monitoring/routes.js';
+import auditLogRoutes from './modules/audit-logs/routes.js';
 import publicRoutes from './modules/public/routes.js';
 import adminRoutes from './modules/admin/routes.js';
 import clientDashboardRoutes from './modules/dashboard/client-dashboard.js';
 import flowAutomationRoutes from './modules/flow-automation/routes.js';
 import llmModelRoutes from './modules/llm-models/routes.js';
 import { incomingConnectionRoutes, plivoIncomingRoutes, twilioOpenaiIncomingRoutes } from './modules/incoming-connections/routes.js';
+import superAdminPhoneRoutes from './modules/phone-numbers/superadmin-phone.routes.js';
+import superAdminIncomingRoutes from './modules/incoming-connections/superadmin-incoming.routes.js';
 
 export const createApp = () => {
   const app = express();
@@ -160,6 +163,9 @@ export const createApp = () => {
   app.use(`${env.API_PREFIX}/superadmin/dashboard`, superAdminDashboardRoutes);
   app.use(`${env.API_PREFIX}/superadmin/flows`, flowBuilderRoutes);
   app.use(`${env.API_PREFIX}/superadmin/monitoring`, monitoringRoutes);
+  app.use(`${env.API_PREFIX}/superadmin/audit-logs`, auditLogRoutes);
+  app.use(`${env.API_PREFIX}/superadmin/phone-numbers`, superAdminPhoneRoutes);
+  app.use(`${env.API_PREFIX}/superadmin/incoming-connections`, superAdminIncomingRoutes);
 
   // Public & Admin Platform Routes
   app.use('/api/public', publicRoutes);

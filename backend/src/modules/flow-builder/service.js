@@ -41,23 +41,37 @@ export class FlowBuilderService {
     return flow;
   }
 
-  static async assignToClient(flowId, { clientId }) {
+  static async assignToClient(flowId, { clientId, voiceAgentId, voiceAgentName, assignedPhoneNumber, status, effectiveDate }) {
     const flow = await this.getFlow(flowId);
 
+    const updatePayload = {};
+
     if (!clientId || clientId === 'global') {
-      flow.assignedClientId = null;
-      flow.assignedClientName = 'Global System Template';
+      updatePayload.assignedClientId = null;
+      updatePayload.clientId = null;
+      updatePayload.assignedClientName = 'Global System Template';
     } else {
       const client = await Client.findById(clientId);
       if (!client) {
         throw new AppError('Target client not found', 404);
       }
-      flow.assignedClientId = client._id;
-      flow.assignedClientName = client.companyName;
+      updatePayload.assignedClientId = client._id;
+      updatePayload.clientId = client._id;
+      updatePayload.assignedClientName = client.companyName;
     }
 
-    await flow.save();
-    return flow;
+    if (voiceAgentId !== undefined) updatePayload.voiceAgentId = voiceAgentId || null;
+    if (voiceAgentName !== undefined) updatePayload.voiceAgentName = voiceAgentName || '';
+    if (assignedPhoneNumber !== undefined) updatePayload.assignedPhoneNumber = assignedPhoneNumber || '';
+    if (status !== undefined) updatePayload.status = status;
+    if (effectiveDate !== undefined) updatePayload.effectiveDate = new Date(effectiveDate);
+
+    const updated = await ConversationFlow.findByIdAndUpdate(
+      flowId,
+      { $set: updatePayload },
+      { new: true }
+    );
+    return updated || flow;
   }
 
   static async deleteFlow(flowId) {

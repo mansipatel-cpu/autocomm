@@ -52,7 +52,7 @@ export const env = {
     PORT: parseInt(process.env.SMTP_PORT || '2525', 10),
     USER: process.env.SMTP_USER || '',
     PASS: process.env.SMTP_PASS || '',
-    FROM: process.env.EMAIL_FROM || 'no-reply@autocomm.io',
+    FROM: process.env.EMAIL_FROM || process.env.SMTP_USER || 'no-reply@autocomm.io',
     FROM_NAME: process.env.EMAIL_FROM_NAME || 'AutoComm Operations',
   },
 

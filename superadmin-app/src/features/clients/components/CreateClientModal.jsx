@@ -10,6 +10,7 @@ export const CreateClientModal = ({ isOpen, onClose, onClientCreated }) => {
     contactNumber: '',
     plan: 'Enterprise Scale',
     initialCredits: 10000,
+    initialPassword: '',
   });
 
   const [loading, setLoading] = useState(false);
@@ -144,14 +145,28 @@ export const CreateClientModal = ({ isOpen, onClose, onClientCreated }) => {
                 </div>
               </div>
 
-              <div>
-                <label className="text-slate-300 font-semibold block mb-1">Initial Credit Allowance</label>
-                <input
-                  type="number"
-                  value={formData.initialCredits}
-                  onChange={(e) => setFormData({ ...formData, initialCredits: parseInt(e.target.value || '0', 10) })}
-                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-indigo-500"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-slate-300 font-semibold block mb-1">
+                    Initial Password <span className="text-slate-500 font-normal text-[10px]">(Optional - leave blank to auto-generate)</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Auto-generated if blank"
+                    value={formData.initialPassword}
+                    onChange={(e) => setFormData({ ...formData, initialPassword: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white font-mono placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-slate-300 font-semibold block mb-1">Initial Credit Allowance</label>
+                  <input
+                    type="number"
+                    value={formData.initialCredits}
+                    onChange={(e) => setFormData({ ...formData, initialCredits: parseInt(e.target.value || '0', 10) })}
+                    className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
               </div>
 
               <div className="pt-2 flex items-center justify-end gap-3">
