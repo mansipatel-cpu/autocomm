@@ -1,4 +1,3 @@
-import mongoose from 'mongoose';
 import { Campaign, CampaignRecipient } from '../campaigns/model.js';
 import { CallRecord } from '../calls/model.js';
 import { Message } from '../team-inbox/model.js';
@@ -6,33 +5,6 @@ import { Contact } from '../contacts/model.js';
 
 export class AnalyticsService {
   static async getTenantAnalytics(clientId) {
-    if (mongoose.connection.readyState !== 1) {
-      return {
-        overview: {
-          totalContacts: 250,
-          totalCampaigns: 4,
-          totalCalls: 142,
-          totalMessagesDispatched: 1420,
-        },
-        whatsapp: {
-          totalDispatched: 1420,
-          deliveryRate: 98.4,
-          readRate: 84.6,
-          responseRate: 42.8,
-          failureRate: 1.6,
-        },
-        voice: {
-          totalCalls: 142,
-          completedCalls: 128,
-          answerRate: 88.6,
-          avgCallDurationSec: 94,
-          positiveSentimentRate: 80,
-          totalMinutes: 220,
-        },
-        recentActivity: [],
-      };
-    }
-
     const [totalContacts, campaigns, calls, messages] = await Promise.all([
       Contact.countDocuments({ clientId }),
       Campaign.find({ clientId }),

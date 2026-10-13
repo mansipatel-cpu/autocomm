@@ -11,6 +11,24 @@ export class ChannelController {
     }
   }
 
+  static async listByUser(req, res, next) {
+    try {
+      const result = await ChannelService.listChannelsByUser(req.clientId, req.body?.userId);
+      return res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async getActive(req, res, next) {
+    try {
+      const channel = await ChannelService.getActiveChannel(req.clientId);
+      return res.status(200).json(channel);
+    } catch (error) {
+      next(error);
+    }
+  }
+
   static async getById(req, res, next) {
     try {
       const channel = await ChannelService.getChannelById(req.clientId, req.params.id);
@@ -29,28 +47,19 @@ export class ChannelController {
     }
   }
 
+  static async update(req, res, next) {
+    try {
+      const channel = await ChannelService.updateChannel(req.clientId, req.params.id, req.body);
+      return successResponse(res, channel, 'Channel updated successfully');
+    } catch (error) {
+      next(error);
+    }
+  }
+
   static async sendTestMessage(req, res, next) {
     try {
       const result = await ChannelService.sendTestMessage(req.clientId, req.params.id, req.body);
       return successResponse(res, result, 'Test message dispatched');
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  static async updateBusinessProfile(req, res, next) {
-    try {
-      const profile = await ChannelService.updateBusinessProfile(req.clientId, req.params.id, req.body);
-      return successResponse(res, profile, 'Business profile updated');
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  static async requestDisplayName(req, res, next) {
-    try {
-      const result = await ChannelService.requestDisplayNameChange(req.clientId, req.params.id, req.body);
-      return successResponse(res, result, 'Display name change submitted');
     } catch (error) {
       next(error);
     }
@@ -74,10 +83,42 @@ export class ChannelController {
     }
   }
 
-  static async resubscribeWebhooks(req, res, next) {
+  static async getWebhookSubscription(req, res, next) {
     try {
-      const result = await ChannelService.resubscribeWebhooks(req.clientId, req.params.id);
-      return successResponse(res, result, 'Webhooks re-subscribed');
+      const result = await ChannelService.checkWebhookSubscription(req.clientId, req.params.id);
+      // Return 502 for unknown/error states (mirrors omnichannel-saas behaviour so the
+      // frontend treats them as "unknown" instead of "not_subscribed")
+      if (result.status === 'unknown') {
+        return res.status(502).json(result);
+      }
+      return res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async resubscribeWebhook(req, res, next) {
+    try {
+      const result = await ChannelService.resubscribeWebhook(req.clientId, req.params.id);
+      return successResponse(res, result, result.message);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async resubscribeAllWebhooks(req, res, next) {
+    try {
+      const result = await ChannelService.resubscribeAllWebhooks(req.clientId);
+      return successResponse(res, result, result.message);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async checkChannelHealth(req, res, next) {
+    try {
+      const result = await ChannelService.checkChannelHealth(req.clientId, req.params.id);
+      return successResponse(res, result, 'Health check completed');
     } catch (error) {
       next(error);
     }

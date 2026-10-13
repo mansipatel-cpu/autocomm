@@ -95,10 +95,17 @@ export default function Dashboard() {
     const [campaignChoiceOpen, setCampaignChoiceOpen] = useState(false);
     const [isVideoOpen, setIsVideoOpen] = useState(false);
     const { search, setActions } = useAppHeader();
-    const { data: dashboard, isLoading } = useQuery({
+    const { data: rawDashboard, isLoading } = useQuery({
         queryKey: ["/api/dashboard"],
-        queryFn: () => authFetch("/api/dashboard"),
+        queryFn: async () => {
+            try {
+                return await authFetch("/api/dashboard");
+            } catch {
+                return {};
+            }
+        },
     });
+    const dashboard = rawDashboard || {};
     useEffect(() => {
         if (!isDemoMode) {
             setActions(null);
@@ -110,13 +117,32 @@ export default function Dashboard() {
       </Button>);
         return () => setActions(null);
     }, [isDemoMode, setActions]);
-    const { data: contacts = [] } = useQuery({
+    const { data: rawContacts = [] } = useQuery({
         queryKey: ["/api/contacts/deduplicated"],
     });
-    const { data: voiceCampaigns = [] } = useQuery({
+    const contacts = Array.isArray(rawContacts)
+        ? rawContacts
+        : (rawContacts?.contacts || rawContacts?.data?.contacts || rawContacts?.data || []);
+
+    const { data: rawVoiceCampaigns = [] } = useQuery({
         queryKey: ["/api/campaigns"],
-        queryFn: () => authFetch("/api/campaigns"),
+        queryFn: async () => {
+            try {
+                const res = await authFetch("/api/campaigns");
+                if (Array.isArray(res)) return res;
+                if (Array.isArray(res?.data?.campaigns)) return res.data.campaigns;
+                if (Array.isArray(res?.data)) return res.data;
+                if (Array.isArray(res?.campaigns)) return res.campaigns;
+                return [];
+            } catch {
+                return [];
+            }
+        },
     });
+    const voiceCampaigns = Array.isArray(rawVoiceCampaigns)
+        ? rawVoiceCampaigns
+        : (rawVoiceCampaigns?.data?.campaigns || rawVoiceCampaigns?.campaigns || []);
+
     const { data: waCampaigns = [] } = useQuery({
         queryKey: ["/api/whatsapp/campaigns"],
         queryFn: async () => {
@@ -152,18 +178,22 @@ export default function Dashboard() {
             }
         },
     });
-    const { data: promptTemplates = [] } = useQuery({
+    const { data: rawPromptTemplates = [] } = useQuery({
         queryKey: ["/api/prompt-templates", "dashboard"],
         queryFn: async () => {
             try {
                 const result = await authFetch("/api/prompt-templates");
-                return Array.isArray(result) ? result : [];
+                return Array.isArray(result) ? result : result?.data || [];
             }
             catch {
                 return [];
             }
         },
     });
+    const promptTemplates = Array.isArray(rawPromptTemplates)
+        ? rawPromptTemplates
+        : (rawPromptTemplates?.data || []);
+
     if (isLoading) {
         return (<div className="flex items-center justify-center min-h-[400px]">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground"/>
@@ -204,7 +234,7 @@ export default function Dashboard() {
     const totalCampaigns = voiceCampaigns.length + waCampaigns.length;
     const ongoingCampaigns = voiceCampaigns.filter((c) => ["in_progress", "pending", "scheduled"].includes(c.status)).length +
         waCampaigns.filter((c) => ["active", "sending", "scheduled"].includes(c.status || "")).length;
-    const recentContacts = contacts.slice(0, 5);
+    const recentContacts = Array.isArray(contacts) ? contacts.slice(0, 5) : [];
     const templateRows = [
         ...waTemplates.map((tpl) => ({
             id: `wa-${tpl.id}`,

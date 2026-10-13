@@ -8,13 +8,17 @@ const router = Router();
 router.use(authenticate, requireTenant);
 
 router.get('/', ChannelController.list);
+router.get('/active', ChannelController.getActive);
+router.post('/webhook-resubscribe-all', ChannelController.resubscribeAllWebhooks);
+router.post('/userid', ChannelController.listByUser);
 router.post('/', ChannelController.create);
 router.get('/:id', ChannelController.getById);
+router.put('/:id', ChannelController.update);
 router.post('/:id/test-message', ChannelController.sendTestMessage);
-router.put('/:id/profile', ChannelController.updateBusinessProfile);
-router.post('/:id/display-name-request', ChannelController.requestDisplayName);
 router.post('/:id/disconnect', ChannelController.disconnect);
+router.post('/:id/health', ChannelController.checkChannelHealth);
+router.get('/:id/webhook-subscription', ChannelController.getWebhookSubscription);
+router.post('/:id/webhook-resubscribe', ChannelController.resubscribeWebhook);
 router.delete('/:id', ChannelController.delete);
-router.post('/:id/resubscribe-webhooks', ChannelController.resubscribeWebhooks);
 
 export default router;

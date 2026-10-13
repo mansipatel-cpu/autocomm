@@ -19,7 +19,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { useLocation } from "wouter";
 import { Plus, Phone, Trash2, Link as LinkIcon, ArrowRight, Mic } from "lucide-react";
-import { SiTwilio } from "@/shared/components/BrandIcons";
+import { SiTwilio, SiOpenai } from "@/shared/components/BrandIcons";
 import { Button } from "@/shared/components/ui/button";
 import { Badge } from "@/shared/components/ui/badge";
 import { useToast } from "@/shared/hooks/use-toast";

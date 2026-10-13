@@ -261,7 +261,30 @@ export const getQueryFn = ({ on401: unauthorizedBehavior }) => async ({ queryKey
         return null;
     }
     await throwIfResNotOk(res);
-    return await res.json();
+    const json = await res.json();
+    if (json && typeof json === 'object') {
+        if (json.email && json.role) {
+            return json;
+        }
+        if (json.success === true && json.data !== undefined) {
+            const inner = json.data;
+            if (inner && typeof inner === 'object' && !Array.isArray(inner)) {
+                const resourceKeys = [
+                    'campaigns', 'contacts', 'calls', 'agents', 'templates',
+                    'groups', 'phoneNumbers', 'deals', 'channels', 'messages',
+                    'voiceLibrary', 'voices', 'knowledgeBase', 'sources', 'models',
+                    'flows', 'data', 'items', 'submissions', 'appointments', 'forms'
+                ];
+                for (const key of resourceKeys) {
+                    if (Array.isArray(inner[key])) {
+                        return inner[key];
+                    }
+                }
+            }
+            return inner;
+        }
+    }
+    return json;
 };
 export { refreshAccessToken, ensureValidToken };
 export const queryClient = new QueryClient({

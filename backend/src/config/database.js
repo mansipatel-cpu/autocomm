@@ -1,23 +1,15 @@
-import mongoose from 'mongoose';
-import { env } from './env.js';
-import { logger } from './logger.js';
+import {
+  connectPostgres,
+  disconnectPostgres,
+  getPostgresPool,
+  pool,
+  query,
+  getClient,
+  transaction,
+} from './postgres.js';
 
-export const connectDatabase = async () => {
-  try {
-    mongoose.set('strictQuery', true);
-    await mongoose.connect(env.MONGODB_URI);
-    logger.info(`Connected to MongoDB successfully: ${env.MONGODB_URI.split('@').pop()}`);
-  } catch (error) {
-    logger.error('MongoDB connection failure:', error);
-    process.exit(1);
-  }
-};
+export const connectDatabase = connectPostgres;
+export const disconnectDatabase = disconnectPostgres;
 
-export const disconnectDatabase = async () => {
-  try {
-    await mongoose.disconnect();
-    logger.info('Disconnected from MongoDB.');
-  } catch (error) {
-    logger.error('Error disconnecting MongoDB:', error);
-  }
-};
+export { getPostgresPool, pool, query, getClient, transaction };
+

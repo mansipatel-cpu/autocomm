@@ -1,4 +1,4 @@
-import mongoose from 'mongoose';
+import mongoose from '../../common/db/postgres-model.js';
 import { CAMPAIGN_STATUS, CHANNEL_TYPES } from '../../config/constants.js';
 
 const campaignSchema = new mongoose.Schema(

@@ -1,23 +1,9 @@
-import mongoose from 'mongoose';
 import { ConversationFlow } from './model.js';
 import { Client } from '../clients/model.js';
 import { AppError } from '../../common/errors/app-error.js';
 
 export class FlowBuilderService {
   static async listFlows(query = {}) {
-    if (mongoose.connection.readyState !== 1) {
-      return [
-        {
-          _id: 'sample_flow_1',
-          name: 'Lead Qualification & Appointment Booking',
-          description: 'Standard enterprise inbound voice qualification flow',
-          isPublished: true,
-          assignedClientName: 'Global System Template',
-          nodes: [],
-          edges: [],
-        },
-      ];
-    }
     const filter = {};
     if (query.clientId) {
       filter.$or = [{ assignedClientId: query.clientId }, { assignedClientId: null }];

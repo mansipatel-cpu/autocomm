@@ -28,12 +28,12 @@ AutoComm is a production-grade, multi-tenant enterprise communication and automa
                                                 │
                                                 ▼
                                   ┌───────────────────────────┐
-                                  │   MongoDB (Replica/Mongoose)
-                                  │   (Strict Tenant Isolation)
+                                  │   PostgreSQL (pg Pool)    │
+                                  │   (Strict Tenant Schema)  │
                                   └───────────────────────────┘
 ```
 
-- **Backend**: Node.js (ESM), Express.js, MongoDB (Mongoose), BullMQ / Redis, Socket.IO (realtime updates), Nodemailer, Winston logger, Zod validations, AES-256-GCM token encryption.
+- **Backend**: Node.js (ESM), Express.js, PostgreSQL (`pg` connection pool with relational schema), BullMQ / Redis, Socket.IO (realtime updates), Nodemailer, Winston logger, Zod validations, AES-256-GCM token encryption.
 - **Client Frontend (`client-app`)**: Vite, React 19, Tailwind CSS, Lucide icons, dark slate sidebar `#0d1527` with radiant teal branding.
 - **Super Admin Frontend (`superadmin-app`)**: Vite, React 19, Tailwind CSS, Lucide icons, deep slate sidebar `#0a0f1d` with indigo accenting.
 
@@ -43,7 +43,7 @@ AutoComm is a production-grade, multi-tenant enterprise communication and automa
 
 ### 1. Prerequisites
 - **Node.js**: v18+ (or v20+)
-- **MongoDB**: Local or MongoDB Atlas URI (Default: `mongodb://localhost:27017/autocomm`)
+- **PostgreSQL**: Local or PostgreSQL Cloud URI (Default: `postgresql://autocomm:autocomm_password@127.0.0.1:5432/autocomm`)
 - **Redis**: Local or Redis Cloud (Default: `redis://localhost:6379`)
 
 ### 2. Environment Variables
@@ -54,7 +54,7 @@ cp .env.example backend/.env
 ```
 
 ### 3. Docker Compose (Optional One-Command Spinup)
-To run MongoDB and Redis via Docker:
+To run PostgreSQL and Redis via Docker:
 ```bash
 docker-compose up -d
 ```
@@ -65,13 +65,19 @@ AutoComm uses NPM Workspaces across root, backend, client-app, and superadmin-ap
 npm install
 ```
 
-### 5. Seed Database with Full Demo Suite
+### 5. Initialize Database Schema
+To provision all relational tables and indexes:
+```bash
+npm run db:init
+```
+
+### 6. Seed Database with Full Demo Suite
 Populate Super Admin root, demo client company ("Capermint Technologies"), contacts, WhatsApp channels, voice agents, call transcripts, CRM leads, and visual decision flows:
 ```bash
 npm run seed --workspace=autocomm-backend
 ```
 
-### 6. Run Development Servers
+### 7. Run Development Servers
 You can run all three servers concurrently or individually:
 
 ```bash

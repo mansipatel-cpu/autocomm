@@ -1,4 +1,4 @@
-import mongoose from 'mongoose';
+import mongoose from '../../common/db/postgres-model.js';
 import { META_TEMPLATE_STATUS, VOICE_TEMPLATE_STATUS } from '../../config/constants.js';
 
 const buttonSchema = new mongoose.Schema(

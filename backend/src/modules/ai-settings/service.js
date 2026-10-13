@@ -21,11 +21,11 @@ export class AiSettingsService {
   static async updateSettings(clientId, data) {
     let settings = await AiSettings.findOne({ clientId });
     if (!settings) {
-      settings = new AiSettings({ clientId, ...data });
+      settings = await AiSettings.create({ clientId, ...data });
     } else {
       Object.assign(settings, data);
+      await settings.save();
     }
-    await settings.save();
     return settings;
   }
 

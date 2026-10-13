@@ -1,4 +1,4 @@
-import mongoose from 'mongoose';
+import mongoose from '../../common/db/postgres-model.js';
 import { ROLES, USER_STATUS } from '../../config/constants.js';
 
 const userSchema = new mongoose.Schema(

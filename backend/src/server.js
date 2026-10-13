@@ -3,11 +3,11 @@ import { Server as SocketIOServer } from 'socket.io';
 import { createApp } from './app.js';
 import { env } from './config/env.js';
 import { logger } from './config/logger.js';
-import { connectDatabase } from './config/database.js';
+import { connectPostgres, disconnectPostgres } from './config/postgres.js';
 import { setIO } from './socket.js';
 
 const startServer = async () => {
-  await connectDatabase();
+  await connectPostgres();
 
   const app = createApp();
   const server = http.createServer(app);
@@ -58,8 +58,9 @@ const startServer = async () => {
 
   const shutdown = async (signal) => {
     logger.info(`Received ${signal}. Shutting down gracefully...`);
-    server.close(() => {
+    server.close(async () => {
       logger.info('HTTP server closed.');
+      await disconnectPostgres();
       process.exit(0);
     });
   };

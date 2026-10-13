@@ -16,7 +16,19 @@ export const env = {
   APP_URL: process.env.APP_URL || 'http://localhost:5173',
   SUPERADMIN_URL: process.env.SUPERADMIN_URL || 'http://localhost:5174',
 
-  MONGODB_URI: process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/autocomm',
+  POSTGRES: {
+    HOST: process.env.POSTGRES_HOST || '127.0.0.1',
+    PORT: parseInt(process.env.POSTGRES_PORT || '5432', 10),
+    USER: process.env.POSTGRES_USER || 'postgres',
+    PASSWORD: process.env.POSTGRES_PASSWORD || '',
+    DATABASE: process.env.POSTGRES_DB || 'autocomm',
+    URI:
+      process.env.POSTGRES_URI ||
+      `postgresql://${process.env.POSTGRES_USER || 'postgres'}:${process.env.POSTGRES_PASSWORD || ''}@${process.env.POSTGRES_HOST || '127.0.0.1'}:${process.env.POSTGRES_PORT || '5432'}/${process.env.POSTGRES_DB || 'autocomm'}`,
+    MAX_CONNECTIONS: parseInt(process.env.POSTGRES_MAX_CONNECTIONS || '20', 10),
+    IDLE_TIMEOUT_MILLIS: parseInt(process.env.POSTGRES_IDLE_TIMEOUT_MS || '30000', 10),
+    CONNECTION_TIMEOUT_MILLIS: parseInt(process.env.POSTGRES_CONN_TIMEOUT_MS || '10000', 10),
+  },
 
   REDIS: {
     HOST: process.env.REDIS_HOST || '127.0.0.1',

@@ -6,6 +6,7 @@ const router = Router();
 
 router.use(authenticate);
 
+router.get('/', TeamInboxController.listConversations);
 router.get('/conversations', TeamInboxController.listConversations);
 router.get('/conversations/:id', TeamInboxController.getConversation);
 router.get('/conversations/:id/messages', TeamInboxController.getMessages);

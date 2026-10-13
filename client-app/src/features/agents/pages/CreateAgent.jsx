@@ -170,15 +170,38 @@ export default function CreateAgent() {
         });
         return () => setPageMeta(null);
     }, [setPageMeta, isEdit]);
-    const { data: knowledgeBase = [] } = useQuery({
+    const { data: rawKnowledgeBase = [] } = useQuery({
         queryKey: ["/api/knowledge-base"],
     });
-    const { data: availableLLMModels = [] } = useQuery({
+    const knowledgeBase = Array.isArray(rawKnowledgeBase)
+        ? rawKnowledgeBase
+        : (Array.isArray(rawKnowledgeBase?.sources)
+            ? rawKnowledgeBase.sources
+            : (Array.isArray(rawKnowledgeBase?.data)
+                ? rawKnowledgeBase.data
+                : []));
+
+    const { data: rawAvailableLLMModels = [] } = useQuery({
         queryKey: ["/api/llm-models/available"],
     });
-    const { data: flows = [] } = useQuery({
+    const availableLLMModels = Array.isArray(rawAvailableLLMModels)
+        ? rawAvailableLLMModels
+        : (Array.isArray(rawAvailableLLMModels?.models)
+            ? rawAvailableLLMModels.models
+            : (Array.isArray(rawAvailableLLMModels?.data)
+                ? rawAvailableLLMModels.data
+                : []));
+
+    const { data: rawFlows = [] } = useQuery({
         queryKey: ["/api/flow-automation/flows"],
     });
+    const flows = Array.isArray(rawFlows)
+        ? rawFlows
+        : (Array.isArray(rawFlows?.flows)
+            ? rawFlows.flows
+            : (Array.isArray(rawFlows?.data)
+                ? rawFlows.data
+                : []));
     const { data: voiceEngineSettings } = useQuery({
         queryKey: ["/api/settings/voice-engine"],
         staleTime: 60000,

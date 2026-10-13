@@ -1,4 +1,4 @@
-import mongoose from 'mongoose';
+import mongoose from '../../common/db/postgres-model.js';
 
 export const CRM_STAGES = ['NEW_LEAD', 'CONTACTED', 'QUALIFIED', 'PROPOSAL_SENT', 'WON', 'LOST'];
 

@@ -106,9 +106,15 @@ export default function LoginPage() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(data),
             });
-            const result = await response.json();
+            let result = {};
+            try {
+                const text = await response.text();
+                result = text ? JSON.parse(text) : {};
+            } catch {
+                result = {};
+            }
             if (!response.ok) {
-                throw new Error(result.error || result.message || "Login failed");
+                throw new Error(result.error || result.message || (response.status === 502 || response.status === 504 ? "API server is currently unreachable. Please ensure the backend is running on port 5000." : "Login failed"));
             }
             const token = result.token || result.accessToken || result.data?.token || result.data?.accessToken;
             const user = result.user || result.data?.user;

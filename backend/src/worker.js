@@ -1,9 +1,9 @@
-import { connectDatabase } from './config/database.js';
+import { connectPostgres, disconnectPostgres } from './config/postgres.js';
 import { getRedisClient } from './config/redis.js';
 import { logger } from './config/logger.js';
 
 const startWorkers = async () => {
-  await connectDatabase();
+  await connectPostgres();
   getRedisClient();
 
   logger.info('⚙️  AutoComm BullMQ Workers Process initialized and listening for jobs...');
@@ -11,6 +11,7 @@ const startWorkers = async () => {
   // Worker queues will be loaded here as modules are developed
   const shutdown = async (signal) => {
     logger.info(`Worker received ${signal}. Stopping queues...`);
+    await disconnectPostgres();
     process.exit(0);
   };
 

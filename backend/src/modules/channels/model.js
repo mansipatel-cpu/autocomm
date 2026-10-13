@@ -1,5 +1,8 @@
-import mongoose from 'mongoose';
+import mongoose from '../../common/db/postgres-model.js';
 
+// Schema matches the actual PostgreSQL `channels` table columns:
+// id, client_id, channel_name, phone_number_id, waba_id, access_token,
+// status, webhook_verify_token, created_at, updated_at
 const channelSchema = new mongoose.Schema(
   {
     clientId: {
@@ -13,76 +16,47 @@ const channelSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
-    phoneNumber: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-    metaAppId: {
-      type: String,
-      required: true,
-    },
     phoneNumberId: {
-      type: String,
-      required: true,
-    },
-    wabaId: {
-      type: String,
-      required: true,
-    },
-    accessTokenEncrypted: {
-      type: String,
-      required: true,
-    },
-    businessAccountId: {
       type: String,
       default: '',
     },
-    throughputRate: {
+    wabaId: {
       type: String,
-      default: '80 msg/sec',
+      default: '',
+    },
+    accessToken: {
+      type: String,
+      default: '',
     },
     status: {
       type: String,
-      enum: ['Active', 'Disconnected', 'Inactive'],
-      default: 'Active',
+      enum: ['CONNECTED', 'DISCONNECTED', 'Active', 'Inactive', 'Disconnected'],
+      default: 'CONNECTED',
       index: true,
     },
-    health: {
-      overall: { type: String, default: 'Healthy' },
-      accountMode: { type: String, default: 'LIVE' },
-      qualityRating: { type: String, default: 'GREEN' },
-      messagingLimit: { type: String, default: 'Unconfirmed' },
-      throughput: { type: String, default: 'STANDARD' },
-      verification: { type: String, default: 'EXPIRED' },
-      nameStatus: { type: String, default: 'APPROVED' },
-      messagingAvailability: { type: String, default: 'AVAILABLE' },
-      deliveryWebhooks: { type: String, default: 'Subscribed' },
-      lastCheckedAt: { type: Date, default: Date.now },
+    webhookVerifyToken: {
+      type: String,
+      default: '',
     },
-    businessProfile: {
-      displayName: { type: String, default: '' },
-      profilePhotoUrl: { type: String, default: '' },
-      about: { type: String, maxlength: 139, default: '' },
-      description: { type: String, maxlength: 512, default: '' },
-      address: { type: String, default: '' },
-      email: { type: String, default: '' },
-      websites: { type: [String], default: [] },
-      industry: { type: String, default: 'Other' },
+    healthStatus: {
+      type: String,
+      enum: ['healthy', 'warning', 'error', 'unknown'],
+      default: 'unknown',
     },
-    displayNameRequests: [
-      {
-        requestedName: String,
-        status: { type: String, default: 'Pending Meta Review' },
-        requestedAt: { type: Date, default: Date.now },
-      },
-    ],
+    healthDetails: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {},
+    },
+    lastHealthCheck: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,
   }
 );
 
-channelSchema.index({ clientId: 1, phoneNumber: 1 });
+channelSchema.index({ clientId: 1, status: 1 });
 
 export const Channel = mongoose.model('Channel', channelSchema);

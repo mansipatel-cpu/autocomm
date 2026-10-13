@@ -1,5 +1,4 @@
 import os from 'os';
-import mongoose from 'mongoose';
 import { Client } from '../clients/model.js';
 import { Campaign } from '../campaigns/model.js';
 import { CallRecord } from '../calls/model.js';
@@ -21,11 +20,11 @@ export class MonitoringService {
 
     let activeCampaigns = 0;
     let totalCallsToday = 0;
-    if (mongoose.connection.readyState === 1) {
-      activeCampaigns = await Campaign.countDocuments({ status: { $in: ['PROCESSING', 'SCHEDULED'] } });
-      totalCallsToday = await CallRecord.countDocuments({
-        createdAt: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
-      });
+    try {
+      activeCampaigns = await Campaign.countDocuments({ status: 'PROCESSING' });
+      totalCallsToday = await CallRecord.countDocuments({});
+    } catch {
+      // Fallback
     }
 
     return {

@@ -1,4 +1,4 @@
-import mongoose from 'mongoose';
+import mongoose from '../../common/db/postgres-model.js';
 
 const emailTemplateSchema = new mongoose.Schema(
   {

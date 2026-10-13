@@ -46,20 +46,25 @@ export default function PromptTemplatesLibrary({ onSelectTemplate, }) {
     const [selectedTemplate, setSelectedTemplate] = useState(null);
     const [variableValues, setVariableValues] = useState({});
     const [currentPage, setCurrentPage] = useState(1);
-    const { data: templates = [], isLoading } = useQuery({
+    const { data: rawTemplates = [], isLoading } = useQuery({
         queryKey: ["/api/prompt-templates"],
         queryFn: async () => {
-            const headers = {};
-            const authHeader = AuthStorage.getAuthHeader();
-            if (authHeader) {
-                headers["Authorization"] = authHeader;
-            }
-            const res = await fetch("/api/prompt-templates", { headers });
-            if (!res.ok)
-                throw new Error("Failed to fetch templates");
-            return res.json();
+            const res = await apiRequest("GET", "/api/prompt-templates");
+            const json = await res.json();
+            if (Array.isArray(json)) return json;
+            if (Array.isArray(json?.data)) return json.data;
+            if (Array.isArray(json?.data?.data)) return json.data.data;
+            if (Array.isArray(json?.templates)) return json.templates;
+            return [];
         },
     });
+    const templates = Array.isArray(rawTemplates)
+        ? rawTemplates
+        : (Array.isArray(rawTemplates?.data)
+            ? rawTemplates.data
+            : (Array.isArray(rawTemplates?.data?.data)
+                ? rawTemplates.data.data
+                : []));
     const useMutation_template = useMutation({
         mutationFn: async ({ id, variableValues, }) => {
             const res = await apiRequest("POST", `/api/prompt-templates/${id}/use`, { variableValues });
@@ -88,7 +93,7 @@ export default function PromptTemplatesLibrary({ onSelectTemplate, }) {
             });
         },
     });
-    const filteredTemplates = templates.filter((t) => {
+    const filteredTemplates = (Array.isArray(templates) ? templates : []).filter((t) => {
         const matchesCategory = selectedCategory === "all" || t.category === selectedCategory;
         const matchesSearch = !searchQuery ||
             t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||

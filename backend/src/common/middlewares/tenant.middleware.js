@@ -1,16 +1,11 @@
 import { AppError } from '../errors/app-error.js';
-import mongoose from 'mongoose';
 
 export const requireTenant = (req, res, next) => {
   if (!req.user || !req.user.clientId) {
     return next(AppError.forbidden('Tenant context is missing. Action denied.'));
   }
 
-  try {
-    req.clientId = new mongoose.Types.ObjectId(req.user.clientId);
-  } catch (err) {
-    return next(AppError.badRequest('Invalid tenant identifier'));
-  }
+  req.clientId = req.user.clientId;
 
   // Helper method attached to req for strict query scoping
   req.tenantFilter = (additionalFilter = {}) => {

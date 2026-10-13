@@ -3,10 +3,29 @@ import { KnowledgeBaseService } from './service.js';
 export class KnowledgeBaseController {
   static async listSources(req, res, next) {
     try {
-      const data = await KnowledgeBaseService.listSources(req.user.clientId, req.query.type);
+      const clientId = req.user?.clientId || req.clientId;
+      const data = await KnowledgeBaseService.listSources(clientId, req.query.type);
+      const sources = (data.sources || []).map(s => ({
+        ...s,
+        id: s.id || s._id,
+        title: s.name || s.title || s.originalName || 'Knowledge Document',
+        ragStatus: s.status ? s.status.toLowerCase() : 'ready',
+        chunkCount: s.chunkCount || 0,
+      }));
+      res.status(200).json(sources);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async getStorage(req, res, next) {
+    try {
+      const clientId = req.user?.clientId || req.clientId;
+      const data = await KnowledgeBaseService.listSources(clientId);
       res.status(200).json({
-        success: true,
-        data,
+        maxStorageBytes: 50 * 1024 * 1024,
+        usedStorageBytes: data.stats?.totalStorageUsed || 0,
+        usagePercent: data.stats?.storagePercent || 0,
       });
     } catch (err) {
       next(err);

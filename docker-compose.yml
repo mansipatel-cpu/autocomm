@@ -1,17 +1,6 @@
 version: '3.8'
 
 services:
-  mongodb:
-    image: mongo:7.0
-    container_name: autocomm-mongodb
-    restart: always
-    ports:
-      - '27017:27017'
-    volumes:
-      - mongo-data:/data/db
-    environment:
-      MONGO_INITDB_DATABASE: autocomm
-
   redis:
     image: redis:7-alpine
     container_name: autocomm-redis
@@ -20,6 +9,26 @@ services:
       - '6379:6379'
     volumes:
       - redis-data:/data
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: autocomm-postgres
+    restart: always
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./backend/src/scripts/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./backend/src/scripts/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-autocomm}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-autocomm_password}
+      POSTGRES_DB: ${POSTGRES_DB:-autocomm}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-autocomm} -d ${POSTGRES_DB:-autocomm}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   backend:
     build:
@@ -32,12 +41,17 @@ services:
     environment:
       - NODE_ENV=development
       - PORT=5000
-      - MONGODB_URI=mongodb://mongodb:27017/autocomm
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=autocomm
+      - POSTGRES_PASSWORD=autocomm_password
+      - POSTGRES_DB=autocomm
+      - POSTGRES_URI=postgresql://autocomm:autocomm_password@postgres:5432/autocomm
     depends_on:
-      - mongodb
       - redis
+      - postgres
     volumes:
       - ./backend:/app
       - /app/node_modules
@@ -51,12 +65,17 @@ services:
     restart: always
     environment:
       - NODE_ENV=development
-      - MONGODB_URI=mongodb://mongodb:27017/autocomm
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=autocomm
+      - POSTGRES_PASSWORD=autocomm_password
+      - POSTGRES_DB=autocomm
+      - POSTGRES_URI=postgresql://autocomm:autocomm_password@postgres:5432/autocomm
     depends_on:
-      - mongodb
       - redis
+      - postgres
     volumes:
       - ./backend:/app
       - /app/node_modules
@@ -94,5 +113,5 @@ services:
       - /app/node_modules
 
 volumes:
-  mongo-data:
   redis-data:
+  postgres-data:

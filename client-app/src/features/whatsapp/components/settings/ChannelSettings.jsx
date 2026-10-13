@@ -60,9 +60,9 @@ export function ChannelSettings() {
     const { user } = useAuth();
     const { selectedChannel, setSelectedChannel } = useChannelContext();
     const { data: channels = [], isLoading: channelsLoading } = useQuery({
-        queryKey: ["/api/whatsapp/channels"],
+        queryKey: ["/api/v1/channels"],
         queryFn: async () => {
-            const response = await apiRequest("GET", "/api/whatsapp/channels");
+            const response = await apiRequest("GET", "/api/v1/channels");
             const json = await response.json();
             if (Array.isArray(json))
                 return json;
@@ -71,32 +71,15 @@ export function ChannelSettings() {
             return [];
         },
     });
-    const { data: config } = useQuery({
-        queryKey: ["/api/whatsapp/embedded/config"],
-        queryFn: async () => {
-            const res = await fetch("/api/whatsapp/embedded/config", { credentials: "include" });
-            if (!res.ok)
-                return null;
-            return res.json();
-        },
-    });
-    const { data: platformSettings } = useQuery({
-        queryKey: ["/api/whatsapp/platform-settings"],
-        queryFn: async () => {
-            const res = await fetch("/api/whatsapp/platform-settings", { credentials: "include" });
-            if (!res.ok)
-                return { embeddedSignupEnabled: true };
-            return res.json();
-        },
-    });
-    const embeddedSignupEnabled = platformSettings?.embeddedSignupEnabled ?? true;
+    const config = null; // autocomm uses manual channel entry, not embedded signup
+    const embeddedSignupEnabled = false;
     const deleteChannelMutation = useMutation({
         mutationFn: async (channelId) => {
-            return await apiRequest("DELETE", `/api/whatsapp/channels/${channelId}`);
+            return await apiRequest("DELETE", `/api/v1/channels/${channelId}`);
         },
         onSuccess: (_data, channelId) => {
-            queryClient.invalidateQueries({ queryKey: ["/api/whatsapp/channels"] });
-            queryClient.invalidateQueries({ queryKey: ["/api/whatsapp/channels/active"] });
+            queryClient.invalidateQueries({ queryKey: ["/api/v1/channels"] });
+            queryClient.invalidateQueries({ queryKey: ["/api/v1/channels/active"] });
             if (selectedChannel?.id === channelId) {
                 setSelectedChannel(null);
             }
@@ -116,14 +99,14 @@ export function ChannelSettings() {
     });
     const disconnectMutation = useMutation({
         mutationFn: async (channelId) => {
-            return await apiRequest("POST", `/api/whatsapp/channels/${channelId}/disconnect`);
+            return await apiRequest("POST", `/api/v1/channels/${channelId}/disconnect`);
         },
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["/api/whatsapp/channels"] });
+            queryClient.invalidateQueries({ queryKey: ["/api/v1/channels"] });
             setShowDisconnectConfirm(null);
             toast({
                 title: "Channel Disconnected",
-                description: "The WhatsApp channel has been disconnected from Cloud API. You can reconnect it anytime.",
+                description: "The WhatsApp channel has been disconnected. You can reconnect it anytime.",
             });
         },
         onError: (error) => {
@@ -152,9 +135,9 @@ export function ChannelSettings() {
                 title: t("settings.channel_setting.checkingHealth"),
                 description: t("settings.channel_setting.verifyingConnection"),
             });
-            const response = await apiRequest("POST", `/api/whatsapp/channels/${channelId}/health`);
+            const response = await apiRequest("POST", `/api/v1/channels/${channelId}/health`);
             const data = await response.json();
-            await queryClient.invalidateQueries({ queryKey: ["/api/whatsapp/channels"] });
+            await queryClient.invalidateQueries({ queryKey: ["/api/v1/channels"] });
             if (data.status === "healthy") {
                 toast({
                     title: t("settings.channel_setting.channelHealthy"),
@@ -187,7 +170,7 @@ export function ChannelSettings() {
     const fetchWebhookSubStatus = async (channelId) => {
         setWebhookSubStatus((prev) => ({ ...prev, [channelId]: "loading" }));
         try {
-            const response = await fetch(`/api/whatsapp/channels/${channelId}/webhook-subscription`, { credentials: "include" });
+            const response = await fetch(`/api/v1/channels/${channelId}/webhook-subscription`, { credentials: "include" });
             const data = await response.json();
             if (!response.ok) {
                 // 502 or other transport errors → unknown (not a definitive non-subscription)
@@ -207,7 +190,7 @@ export function ChannelSettings() {
     const resubscribeWebhook = async (channelId) => {
         setResubscribingChannelId(channelId);
         try {
-            await apiRequest("POST", `/api/whatsapp/channels/${channelId}/webhook-resubscribe`);
+            await apiRequest("POST", `/api/v1/channels/${channelId}/webhook-resubscribe`);
             toast({
                 title: "Webhook Re-subscribed",
                 description: "This channel is now subscribed to receive delivery and read receipts from Meta.",
@@ -230,7 +213,7 @@ export function ChannelSettings() {
     const resubscribeAllWebhooks = async () => {
         setResubscribingAll(true);
         try {
-            const response = await apiRequest("POST", "/api/whatsapp/channels/webhook-resubscribe-all");
+            const response = await apiRequest("POST", "/api/v1/channels/webhook-resubscribe-all");
             const data = await response.json();
             toast({
                 title: "Webhooks Re-subscribed",
@@ -414,10 +397,10 @@ export function ChannelSettings() {
         }
     };
     const channelPendingDelete = channels.find((c) => c.id === showDeleteConfirm);
-    const deleteChannelDisplayName = channelPendingDelete?.healthDetails?.verified_name ||
+    const deleteChannelDisplayName = channelPendingDelete?.channelName ||
         channelPendingDelete?.name ||
         "this channel";
-    const deleteChannelPhone = channelPendingDelete?.phoneNumber || "";
+    const deleteChannelPhone = channelPendingDelete?.phoneNumberId || "";
     const deleteChannelLabel = deleteChannelPhone
         ? `${deleteChannelDisplayName} (${deleteChannelPhone})`
         : deleteChannelDisplayName;
