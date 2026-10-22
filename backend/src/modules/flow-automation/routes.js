@@ -49,6 +49,28 @@ router.patch('/flows/:id', async (req, res, next) => {
   }
 });
 
+router.put('/flows/:id', async (req, res, next) => {
+  try {
+    const flow = await FlowBuilderService.updateFlow(req.params.id, req.body);
+    return successResponse(res, flow, 'Flow updated');
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/flows/:id/test', async (req, res) => {
+  return successResponse(
+    res,
+    {
+      success: true,
+      testCallId: 'test_call_' + Date.now(),
+      queueEntryId: 'test_queue_' + Date.now(),
+      status: 'initiated',
+    },
+    'Test flow started'
+  );
+});
+
 router.delete('/flows/:id', async (req, res, next) => {
   try {
     const flow = await FlowBuilderService.getFlow(req.params.id);

@@ -1,4 +1,5 @@
 import { AuthService } from './service.js';
+import { OtpService } from './otp.service.js';
 import { successResponse } from '../../common/utils/response.util.js';
 
 export class AuthController {
@@ -114,4 +115,74 @@ export class AuthController {
       next(error);
     }
   }
+
+  // Registration OTP
+  static async sendOtp(req, res, next) {
+    try {
+      const result = await OtpService.sendRegistrationOtp(req.body);
+      return res.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Verify Registration OTP
+  static async verifyOtp(req, res, next) {
+    try {
+      const result = await OtpService.verifyRegistrationOtp(req.body);
+      return res.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Complete Registration
+  static async register(req, res, next) {
+    try {
+      const result = await OtpService.register(req.body);
+      if (result.refreshToken) {
+        res.cookie('refresh_token', result.refreshToken, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          maxAge: 30 * 24 * 60 * 60 * 1000,
+          path: '/',
+        });
+      }
+      return res.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Forgot Password: Send OTP
+  static async forgotPasswordSendOtp(req, res, next) {
+    try {
+      const result = await OtpService.sendForgotPasswordOtp(req.body);
+      return res.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Forgot Password: Verify OTP
+  static async forgotPasswordVerifyOtp(req, res, next) {
+    try {
+      const result = await OtpService.verifyForgotPasswordOtp(req.body);
+      return res.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Forgot Password: Reset Password
+  static async forgotPasswordReset(req, res, next) {
+    try {
+      const result = await OtpService.resetPassword(req.body);
+      return res.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
 }
+

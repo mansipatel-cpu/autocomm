@@ -12,4 +12,14 @@ router.post('/logout', AuthController.logout);
 router.post('/change-password', authenticate, validate(changePasswordSchema), AuthController.changePassword);
 router.get('/me', authenticate, AuthController.getMe);
 
+// OTP Registration & Onboarding Routes
+router.post('/send-otp', AuthController.sendOtp);
+router.post('/verify-otp', AuthController.verifyOtp);
+router.post('/register', AuthController.register);
+
+// Forgot Password OTP Flow
+router.post('/forgot-password/send-otp', AuthController.forgotPasswordSendOtp);
+router.post('/forgot-password/verify-otp', AuthController.forgotPasswordVerifyOtp);
+router.post('/forgot-password/reset', AuthController.forgotPasswordReset);
+
 export default router;

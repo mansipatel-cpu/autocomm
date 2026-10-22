@@ -7,6 +7,8 @@ export const signAccessToken = (payload) => {
   });
 };
 
+export const generateAccessToken = signAccessToken;
+
 export const signRefreshToken = (payload, rememberMe = false) => {
   return jwt.sign(payload, env.JWT.REFRESH_SECRET, {
     expiresIn: rememberMe ? '30d' : env.JWT.REFRESH_EXPIRES_IN,

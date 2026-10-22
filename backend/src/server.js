@@ -6,6 +6,7 @@ import { logger } from './config/logger.js';
 import { connectPostgres, disconnectPostgres } from './config/postgres.js';
 import { setIO } from './socket.js';
 
+// AutoComm Server - Client Users Management Updated
 const startServer = async () => {
   await connectPostgres();
 

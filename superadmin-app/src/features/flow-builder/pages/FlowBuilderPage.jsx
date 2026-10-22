@@ -721,7 +721,7 @@ export const FlowBuilderPage = () => {
                 >
                   <option value="global">Global System Template (Unassigned)</option>
                   {clients.map((c) => (
-                    <option key={c._id} value={c._id}>
+                    <option key={c.id || c._id} value={c.id || c._id}>
                       {c.companyName} ({c.clientCode})
                     </option>
                   ))}

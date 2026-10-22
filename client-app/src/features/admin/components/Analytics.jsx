@@ -53,28 +53,7 @@ export default function Analytics() {
     const { data: analytics, isLoading, refetch } = useQuery({
         queryKey: [`/api/admin/analytics?timeRange=${timeRange}`],
     });
-    const generateMockGrowthData = () => {
-        const days = timeRange === "7d" ? 7 : timeRange === "30d" ? 30 : timeRange === "90d" ? 90 : timeRange === "all" ? 365 : 365;
-        const data = [];
-        const baseUsers = analytics?.totalUsers || 100;
-        const baseCalls = analytics?.totalCalls || 500;
-        const baseCampaigns = analytics?.totalCampaigns || 50;
-        for (let i = days; i >= 0; i -= Math.max(1, Math.floor(days / 12))) {
-            const date = new Date();
-            date.setDate(date.getDate() - i);
-            const multiplier = 1 - (i / days) * 0.3;
-            data.push({
-                date: date.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-                users: Math.floor(baseUsers * multiplier * (0.9 + Math.random() * 0.2)),
-                calls: Math.floor(baseCalls * multiplier * (0.85 + Math.random() * 0.3)),
-                campaigns: Math.floor(baseCampaigns * multiplier * (0.9 + Math.random() * 0.2)),
-                messages: Math.floor((analytics?.totalMessages || 200) * multiplier * (0.85 + Math.random() * 0.3)),
-                waCampaigns: Math.floor((analytics?.totalWaCampaigns || 20) * multiplier * (0.9 + Math.random() * 0.2)),
-            });
-        }
-        return data;
-    };
-    const growthData = analytics?.growthData || generateMockGrowthData();
+    const growthData = analytics?.growthData || [];
     const planDistribution = [
         { name: t("adminDashboard.analytics.distribution.pro"), value: analytics?.proPlanUsers || 0, fill: CHART_COLORS.pro },
         { name: t("adminDashboard.analytics.distribution.free"), value: analytics?.freePlanUsers || 0, fill: CHART_COLORS.free },

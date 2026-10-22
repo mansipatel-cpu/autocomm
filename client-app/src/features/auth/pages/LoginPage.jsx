@@ -104,7 +104,10 @@ export default function LoginPage() {
             const response = await fetch("/api/auth/login", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(data),
+                body: JSON.stringify({
+                    ...data,
+                    rememberMe: rememberDevice,
+                }),
             });
             let result = {};
             try {
@@ -159,7 +162,7 @@ export default function LoginPage() {
                 description: t("loginPage.toasts.checkEmailAt", { email: data.email }),
             });
             setActiveView('register-otp');
-            setOtpTimer(300); // 5 minutes countdown
+            setOtpTimer(120); // 2 minutes countdown
             setCanResendOtp(false);
             setRegisterOtpCode("");
         }
@@ -195,7 +198,7 @@ export default function LoginPage() {
                 title: t("loginPage.toasts.codeSent"),
                 description: t("loginPage.toasts.otpSent"),
             });
-            setOtpTimer(300);
+            setOtpTimer(120); // 2 minutes countdown
             setCanResendOtp(false);
             setRegisterOtpCode("");
         }
@@ -282,7 +285,7 @@ export default function LoginPage() {
             const result = await response.json();
             if (response.ok) {
                 setForgotPasswordEmail(data.email);
-                setOtpTimer(300);
+                setOtpTimer(120); // 2 minutes countdown
                 setCanResendOtp(false);
                 setActiveView("reset-password");
                 toast({ title: t("loginPage.toasts.codeSent"), description: t("loginPage.rightPanel.form.checkEmail") });
@@ -310,7 +313,7 @@ export default function LoginPage() {
             });
             const result = await response.json();
             if (response.ok) {
-                setOtpTimer(300);
+                setOtpTimer(120); // 2 minutes countdown
                 setCanResendOtp(false);
                 toast({ title: t("loginPage.toasts.codeSent"), description: t("loginPage.rightPanel.form.checkEmail") });
             }

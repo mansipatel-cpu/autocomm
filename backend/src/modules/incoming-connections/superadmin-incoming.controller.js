@@ -1,8 +1,26 @@
 import { IncomingConnection } from './model.js';
+import { PhoneNumber } from '../phone-numbers/model.js';
 import { Client } from '../clients/model.js';
 import { AuditLogService } from '../audit-logs/service.js';
 import { AppError } from '../../common/errors/app-error.js';
 import { successResponse, createdResponse } from '../../common/utils/response.util.js';
+
+const resolveClient = async (clientId) => {
+  if (!clientId || clientId === 'none' || clientId === '') return null;
+  const str = String(clientId).trim();
+  if (/^\d+$/.test(str)) {
+    const byId = await Client.findById(Number(str));
+    if (byId) return byId;
+  }
+  const matchCode = str.match(/CLI-\d+/i);
+  if (matchCode) {
+    const byCode = await Client.findOne({ clientCode: matchCode[0].toUpperCase() });
+    if (byCode) return byCode;
+  }
+  const byName = await Client.findOne({ companyName: str });
+  if (byName) return byName;
+  return null;
+};
 
 export class SuperAdminIncomingController {
   static async list(req, res, next) {
@@ -57,9 +75,9 @@ export class SuperAdminIncomingController {
 
       let clientRef = null;
       if (clientId && clientId !== 'none') {
-        const client = await Client.findById(clientId);
+        const client = await resolveClient(clientId);
         if (!client) throw AppError.notFound('Client not found');
-        clientRef = client._id;
+        clientRef = client.id || client._id;
       }
 
       const connection = await IncomingConnection.create({
@@ -79,6 +97,20 @@ export class SuperAdminIncomingController {
           },
         ],
       });
+
+      if (clientRef && phoneNumber && String(phoneNumber).trim()) {
+        const rawNum = String(phoneNumber).trim();
+        const existingNum = await PhoneNumber.findOne({ clientId: clientRef, phoneNumber: rawNum });
+        if (!existingNum) {
+          await PhoneNumber.create({
+            clientId: clientRef,
+            phoneNumber: rawNum,
+            friendlyName: name || 'Incoming Trunk Line',
+            status: status === 'INACTIVE' ? 'AVAILABLE' : 'ACTIVE',
+            assignedAgentName: 'Unassigned',
+          });
+        }
+      }
 
       await AuditLogService.record({
         req,
@@ -147,11 +179,26 @@ export class SuperAdminIncomingController {
         return successResponse(res, connection, 'Connection unassigned from client');
       }
 
-      const client = await Client.findById(clientId);
+      const client = await resolveClient(clientId);
       if (!client) throw AppError.notFound('Client not found');
 
-      connection.clientId = client._id;
+      connection.clientId = client.id || client._id;
       await connection.save();
+
+      if (connection.phoneNumber && String(connection.phoneNumber).trim()) {
+        const rawNum = String(connection.phoneNumber).trim();
+        const cid = client.id || client._id;
+        const existingNum = await PhoneNumber.findOne({ clientId: cid, phoneNumber: rawNum });
+        if (!existingNum) {
+          await PhoneNumber.create({
+            clientId: cid,
+            phoneNumber: rawNum,
+            friendlyName: connection.name || 'Incoming Trunk Line',
+            status: connection.status === 'INACTIVE' ? 'AVAILABLE' : 'ACTIVE',
+            assignedAgentName: 'Unassigned',
+          });
+        }
+      }
 
       await AuditLogService.record({
         req,

@@ -19,57 +19,7 @@ import { Plus, Search, Filter, Play, Pause, Edit, Copy, MoreVertical, Workflow, 
 const Workflows = () => {
     const [searchTerm, setSearchTerm] = useState("");
     const [filterStatus, setFilterStatus] = useState("all");
-    const [selectedWorkflows, setSelectedWorkflows] = useState([]);
-    const workflows = [
-        {
-            id: 1,
-            name: "Welcome Series",
-            description: "Automated welcome sequence for new subscribers",
-            status: "active",
-            trigger: "New Contact",
-            steps: 5,
-            contacts: 1247,
-            completionRate: 85,
-            created: "2024-01-15",
-            lastRun: "2 hours ago",
-        },
-        {
-            id: 2,
-            name: "Cart Abandonment",
-            description: "Recover abandoned shopping carts with follow-up messages",
-            status: "active",
-            trigger: "Cart Abandoned",
-            steps: 3,
-            contacts: 892,
-            completionRate: 72,
-            created: "2024-01-12",
-            lastRun: "1 hour ago",
-        },
-        {
-            id: 3,
-            name: "Birthday Campaign",
-            description: "Send birthday wishes and special offers",
-            status: "paused",
-            trigger: "Birthday Date",
-            steps: 2,
-            contacts: 234,
-            completionRate: 95,
-            created: "2024-01-10",
-            lastRun: "1 day ago",
-        },
-        {
-            id: 4,
-            name: "Lead Nurturing",
-            description: "Nurture leads with educational content",
-            status: "draft",
-            trigger: "Lead Score",
-            steps: 7,
-            contacts: 0,
-            completionRate: 0,
-            created: "2024-01-16",
-            lastRun: "Never",
-        },
-    ];
+    const workflows = [];
     const filteredWorkflows = workflows.filter((workflow) => {
         const matchesSearch = workflow.name
             .toLowerCase()

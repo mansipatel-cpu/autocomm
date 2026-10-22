@@ -22,6 +22,15 @@ const incomingConnectionSchema = new mongoose.Schema(
       type: String,
       default: '',
     },
+    agentId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Agent',
+      default: null,
+    },
+    agentName: {
+      type: String,
+      default: '',
+    },
     webhookUrl: {
       type: String,
       default: '',

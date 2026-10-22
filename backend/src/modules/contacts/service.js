@@ -67,15 +67,20 @@ export class ContactService {
     name,
     email,
     phoneNumber,
+    phone,
     whatsappNumber,
     sameAsPrimary = true,
     channels = ['whatsapp', 'voice'],
     groupIds = [],
     customVariables = {},
   }) {
-    // Standardize phone numbers
-    const cleanPhone = phoneNumber.replace(/\s+/g, '');
-    const cleanWA = sameAsPrimary ? cleanPhone : (whatsappNumber || cleanPhone).replace(/\s+/g, '');
+    // Standardize phone numbers (accept both phone and phoneNumber)
+    const rawPhone = phoneNumber || phone || whatsappNumber || '';
+    if (!rawPhone) {
+      throw AppError.badRequest('Phone number is required');
+    }
+    const cleanPhone = String(rawPhone).replace(/\s+/g, '');
+    const cleanWA = sameAsPrimary ? cleanPhone : String(whatsappNumber || cleanPhone).replace(/\s+/g, '');
 
     const existing = await Contact.findOne({ clientId, phoneNumber: cleanPhone });
     if (existing) {

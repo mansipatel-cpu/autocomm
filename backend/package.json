@@ -11,6 +11,9 @@
     "worker:dev": "nodemon src/worker.js",
     "seed": "node src/scripts/seed.js",
     "db:init": "node src/scripts/init-db.js",
+    "db:clean": "node src/scripts/clean-demo-data.js",
+    "test:email": "node src/scripts/test-email.js",
+    "test:otp": "node src/scripts/test-otp-flow.js",
     "test": "node --experimental-vm-modules ../node_modules/jest/bin/jest.js --detectOpenHandles"
   },
   "dependencies": {

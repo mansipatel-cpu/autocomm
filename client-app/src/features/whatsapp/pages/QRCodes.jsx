@@ -20,68 +20,7 @@ const QRCodes = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [filterType, setFilterType] = useState('all');
     const [selectedQRCodes, setSelectedQRCodes] = useState([]);
-    const qrCodes = [
-        {
-            id: 1,
-            name: 'Restaurant Menu',
-            type: 'menu',
-            scans: 1247,
-            conversions: 89,
-            conversionRate: 7.1,
-            created: '2024-01-15',
-            lastScan: '2 hours ago',
-            status: 'active',
-            url: 'https://wa.me/1234567890?text=I%20want%20to%20see%20the%20menu'
-        },
-        {
-            id: 2,
-            name: 'Customer Support',
-            type: 'support',
-            scans: 892,
-            conversions: 234,
-            conversionRate: 26.2,
-            created: '2024-01-12',
-            lastScan: '15 minutes ago',
-            status: 'active',
-            url: 'https://wa.me/1234567890?text=I%20need%20help'
-        },
-        {
-            id: 3,
-            name: 'Product Catalog',
-            type: 'catalog',
-            scans: 634,
-            conversions: 45,
-            conversionRate: 7.1,
-            created: '2024-01-10',
-            lastScan: '1 hour ago',
-            status: 'active',
-            url: 'https://wa.me/1234567890?text=Show%20me%20products'
-        },
-        {
-            id: 4,
-            name: 'Event Registration',
-            type: 'event',
-            scans: 423,
-            conversions: 67,
-            conversionRate: 15.8,
-            created: '2024-01-08',
-            lastScan: '3 hours ago',
-            status: 'paused',
-            url: 'https://wa.me/1234567890?text=Register%20for%20event'
-        },
-        {
-            id: 5,
-            name: 'Newsletter Signup',
-            type: 'newsletter',
-            scans: 789,
-            conversions: 156,
-            conversionRate: 19.8,
-            created: '2024-01-05',
-            lastScan: '30 minutes ago',
-            status: 'active',
-            url: 'https://wa.me/1234567890?text=Subscribe%20to%20newsletter'
-        }
-    ];
+    const qrCodes = [];
     const filteredQRCodes = qrCodes.filter(qr => {
         const matchesSearch = qr.name.toLowerCase().includes(searchTerm.toLowerCase());
         const matchesFilter = filterType === 'all' || qr.type === filterType;

@@ -110,6 +110,73 @@ export class TemplateController {
     }
   }
 
+  static async getById(req, res, next) {
+    try {
+      const { id } = req.params;
+      let template = DEFAULT_PROMPT_TEMPLATES.find((t) => t.id === id);
+      if (!template && /^\d+$/.test(id)) {
+        template = await TemplateService.getTemplateById(req.clientId, id);
+      }
+      if (!template) {
+        return res.status(404).json({ success: false, error: 'Template not found' });
+      }
+      return successResponse(res, template, 'Template retrieved');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async use(req, res, next) {
+    try {
+      const { id } = req.params;
+      const { variableValues = {} } = req.body;
+
+      let template = DEFAULT_PROMPT_TEMPLATES.find((t) => t.id === id);
+
+      if (!template && /^\d+$/.test(id)) {
+        const dbTemplate = await TemplateService.getTemplateById(req.clientId, id);
+        if (dbTemplate) {
+          template = {
+            id: dbTemplate.id,
+            name: dbTemplate.name,
+            systemPrompt: dbTemplate.prompt || dbTemplate.content || '',
+            firstMessage: dbTemplate.firstMessage || '',
+            suggestedVoiceTone: dbTemplate.voiceTone || 'friendly',
+            suggestedPersonality: dbTemplate.personality || 'helpful',
+          };
+        }
+      }
+
+      if (!template) {
+        template = DEFAULT_PROMPT_TEMPLATES[0];
+      }
+
+      let systemPrompt = template.systemPrompt || '';
+      let firstMessage = template.firstMessage || '';
+
+      if (variableValues && typeof variableValues === 'object') {
+        for (const [vKey, vVal] of Object.entries(variableValues)) {
+          if (vVal) {
+            const regex = new RegExp(`{{${vKey}}}`, 'g');
+            systemPrompt = systemPrompt.replace(regex, vVal);
+            firstMessage = firstMessage.replace(regex, vVal);
+          }
+        }
+      }
+
+      return res.status(200).json({
+        success: true,
+        id: template.id,
+        systemPrompt,
+        firstMessage,
+        suggestedVoiceTone: template.suggestedVoiceTone,
+        suggestedPersonality: template.suggestedPersonality,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   static async delete(req, res, next) {
     try {
       const result = await TemplateService.deleteTemplate(req.clientId, req.params.id);

@@ -19,7 +19,7 @@ import { Link, useLocation, useRoute } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/shared/lib/queryClient";
 import { useToast } from "@/shared/hooks/use-toast";
-import { useAppHeader } from "@/shared/components/AppPageHeader";
+import { useAppHeader, useAppHeaderOptional } from "@/shared/components/AppPageHeader";
 import { usePluginStatus } from "@/shared/hooks/use-plugin-status";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
@@ -110,44 +110,60 @@ const emptyForm = {
     openaiVoice: "alloy",
 };
 function mapAgentToForm(agent) {
-    const provider = (agent.telephonyProvider || "twilio");
-    const type = provider === "custom-voice-engine" || agent.type === "custom_engine"
+    if (!agent || typeof agent !== "object") return emptyForm;
+    const raw = agent?.data?.agent || agent?.data || agent?.agent || agent;
+    const provider = raw.telephonyProvider || raw.telephony_provider || "twilio";
+    const type = provider === "custom-voice-engine" || raw.type === "custom_engine"
         ? "custom_engine"
-        : agent.type === "flow"
+        : raw.type === "flow"
             ? "flow"
             : "incoming";
+
+    let language = "en";
+    if (raw.language) {
+        const langCode = String(raw.language).split(/[-_]/)[0].toLowerCase();
+        language = SUPPORTED_LANGUAGES.some((l) => l.value === langCode) ? langCode : "en";
+    }
+
     return {
         type,
-        name: agent.name || "",
-        voiceTone: agent.voiceTone || "professional",
-        personality: agent.personality || "helpful",
-        systemPrompt: agent.systemPrompt || "",
-        elevenLabsVoiceId: agent.elevenLabsVoiceId || "",
-        language: agent.language || "en",
-        llmModel: agent.llmModel || "gpt-4o-mini",
-        firstMessage: agent.firstMessage || "Hello! How can I help you today?",
-        temperature: agent.temperature ?? 0.5,
-        knowledgeBaseIds: agent.knowledgeBaseIds || [],
-        transferEnabled: agent.transferEnabled ?? false,
-        transferPhoneNumber: agent.transferPhoneNumber || "",
-        detectLanguageEnabled: agent.detectLanguageEnabled ?? false,
-        endConversationEnabled: agent.endConversationEnabled ?? false,
-        appointmentBookingEnabled: agent.appointmentBookingEnabled ?? false,
-        flowId: agent.flowId || "",
-        voiceStability: agent.voiceStability ?? 0.55,
-        voiceSimilarityBoost: agent.voiceSimilarityBoost ?? 0.85,
-        voiceSpeed: agent.voiceSpeed ?? 1.0,
+        name: raw.name || "",
+        voiceTone: raw.voiceTone || raw.voice_tone || "professional",
+        personality: raw.personality || raw.personality || "helpful",
+        systemPrompt: raw.systemPrompt || raw.system_prompt || raw.persona || "",
+        elevenLabsVoiceId: raw.elevenLabsVoiceId || raw.eleven_labs_voice_id || raw.voiceId || raw.voice_id || "",
+        language,
+        llmModel: raw.llmModel || raw.llm_model || "gpt-4o-mini",
+        firstMessage: raw.firstMessage || raw.first_message || raw.greetingMessage || raw.greeting_message || "Hello! How can I help you today?",
+        temperature: Number.isFinite(Number(raw.temperature)) ? Number(raw.temperature) : 0.5,
+        knowledgeBaseIds: Array.isArray(raw.knowledgeBaseIds)
+            ? raw.knowledgeBaseIds
+            : Array.isArray(raw.knowledge_base_ids)
+                ? raw.knowledge_base_ids
+                : Array.isArray(raw.knowledgeSourceIds)
+                    ? raw.knowledgeSourceIds
+                    : [],
+        transferEnabled: Boolean(raw.transferEnabled ?? raw.transfer_enabled ?? false),
+        transferPhoneNumber: raw.transferPhoneNumber || raw.transfer_phone_number || "",
+        detectLanguageEnabled: Boolean(raw.detectLanguageEnabled ?? raw.detect_language_enabled ?? false),
+        endConversationEnabled: Boolean(raw.endConversationEnabled ?? raw.end_conversation_enabled ?? false),
+        appointmentBookingEnabled: Boolean(raw.appointmentBookingEnabled ?? raw.appointment_booking_enabled ?? false),
+        flowId: raw.flowId || raw.flow_id || "",
+        voiceStability: Number.isFinite(Number(raw.voiceStability ?? raw.voice_stability)) ? Number(raw.voiceStability ?? raw.voice_stability) : 0.55,
+        voiceSimilarityBoost: Number.isFinite(Number(raw.voiceSimilarityBoost ?? raw.voice_similarity_boost)) ? Number(raw.voiceSimilarityBoost ?? raw.voice_similarity_boost) : 0.85,
+        voiceSpeed: Number.isFinite(Number(raw.voiceSpeed ?? raw.voice_speed)) ? Number(raw.voiceSpeed ?? raw.voice_speed) : 1.0,
         telephonyProvider: provider,
-        openaiVoice: agent.openaiVoice || "alloy",
+        openaiVoice: raw.openaiVoice || raw.openai_voice || "alloy",
     };
 }
-export default function CreateAgent() {
+export default function CreateAgent(props) {
     const { toast } = useToast();
     const [, setLocation] = useLocation();
     const [isEditRoute, editParams] = useRoute("/agents/:id/edit");
-    const agentId = isEditRoute ? editParams?.id : undefined;
+    const agentId = props?.params?.id || (isEditRoute ? editParams?.id : undefined);
     const isEdit = Boolean(agentId);
-    const { setPageMeta } = useAppHeader();
+    const appHeader = useAppHeaderOptional();
+    const setPageMeta = appHeader?.setPageMeta;
     const { isCustomVoiceEngineEnabled } = usePluginStatus();
     const [formData, setFormData] = useState(emptyForm);
     const [sourceAgent, setSourceAgent] = useState(null);
@@ -158,10 +174,13 @@ export default function CreateAgent() {
     useEffect(() => {
         if (!existingAgent)
             return;
-        setSourceAgent(existingAgent);
-        setFormData(mapAgentToForm(existingAgent));
+        const agentData = existingAgent?.data?.agent || existingAgent?.data || existingAgent?.agent || existingAgent;
+        if (!agentData || typeof agentData !== "object") return;
+        setSourceAgent(agentData);
+        setFormData(mapAgentToForm(agentData));
     }, [existingAgent]);
     useEffect(() => {
+        if (!setPageMeta) return;
         setPageMeta({
             title: isEdit ? "Edit Agent" : "Create AI Agent",
             subtitle: isEdit
@@ -632,15 +651,15 @@ export default function CreateAgent() {
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <Label>Temperature</Label>
-                <span className="text-sm font-medium text-slate-700">{formData.temperature.toFixed(1)}</span>
+                <span className="text-sm font-medium text-slate-700">{Number(formData.temperature ?? 0.5).toFixed(1)}</span>
               </div>
-              <Slider min={0} max={isOpenAIEngine ? 2 : 1} step={0.1} value={[formData.temperature]} onValueChange={(v) => update("temperature", v[0])} data-testid="slider-temperature" {...BLUE_SLIDER}/>
+              <Slider min={0} max={isOpenAIEngine ? 2 : 1} step={0.1} value={[Number(formData.temperature ?? 0.5)]} onValueChange={(v) => update("temperature", v[0])} data-testid="slider-temperature" {...BLUE_SLIDER}/>
               <div className="flex flex-wrap gap-2">
                 {[
             { label: "Deterministic (0.2)", value: 0.2 },
             { label: "Creative (0.5)", value: 0.5 },
             { label: "More Creative (0.8)", value: 0.8 },
-        ].map((preset) => (<Button key={preset.value} type="button" size="sm" variant="outline" onClick={() => update("temperature", preset.value)} className={cn("rounded-md", Math.abs(formData.temperature - preset.value) < 0.05 &&
+        ].map((preset) => (<Button key={preset.value} type="button" size="sm" variant="outline" onClick={() => update("temperature", preset.value)} className={cn("rounded-md", Math.abs(Number(formData.temperature ?? 0.5) - preset.value) < 0.05 &&
                 "border-[#2F6BFF] text-[#2F6BFF] bg-[#2F6BFF]/5")}>
                     {preset.label}
                   </Button>))}
@@ -652,25 +671,25 @@ export default function CreateAgent() {
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label>Stability</Label>
-                  <span className="text-sm text-slate-600">{Math.round(formData.voiceStability * 100)}%</span>
+                  <span className="text-sm text-slate-600">{Math.round(Number(formData.voiceStability ?? 0.55) * 100)}%</span>
                 </div>
-                <Slider min={0} max={1} step={0.01} value={[formData.voiceStability]} onValueChange={(v) => update("voiceStability", v[0])} {...BLUE_SLIDER}/>
+                <Slider min={0} max={1} step={0.01} value={[Number(formData.voiceStability ?? 0.55)]} onValueChange={(v) => update("voiceStability", v[0])} {...BLUE_SLIDER}/>
               </div>
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label>Similarity Boost</Label>
                   <span className="text-sm text-slate-600">
-                    {Math.round(formData.voiceSimilarityBoost * 100)}%
+                    {Math.round(Number(formData.voiceSimilarityBoost ?? 0.85) * 100)}%
                   </span>
                 </div>
-                <Slider min={0} max={1} step={0.01} value={[formData.voiceSimilarityBoost]} onValueChange={(v) => update("voiceSimilarityBoost", v[0])} {...BLUE_SLIDER}/>
+                <Slider min={0} max={1} step={0.01} value={[Number(formData.voiceSimilarityBoost ?? 0.85)]} onValueChange={(v) => update("voiceSimilarityBoost", v[0])} {...BLUE_SLIDER}/>
               </div>
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label>Speech Speed</Label>
-                  <span className="text-sm text-slate-600">{formData.voiceSpeed.toFixed(2)}x</span>
+                  <span className="text-sm text-slate-600">{Number(formData.voiceSpeed ?? 1.0).toFixed(2)}x</span>
                 </div>
-                <Slider min={0.7} max={1.2} step={0.01} value={[formData.voiceSpeed]} onValueChange={(v) => update("voiceSpeed", v[0])} {...BLUE_SLIDER}/>
+                <Slider min={0.7} max={1.2} step={0.01} value={[Number(formData.voiceSpeed ?? 1.0)]} onValueChange={(v) => update("voiceSpeed", v[0])} {...BLUE_SLIDER}/>
               </div>
             </div>)}
         </div>
@@ -714,13 +733,16 @@ export default function CreateAgent() {
             </div>
             <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-3 max-h-48 overflow-y-auto space-y-1">
               {knowledgeBase.length === 0 ? (<p className="text-sm text-slate-500 px-1 py-2">No knowledge base items yet.</p>) : (knowledgeBase.map((kb) => (<label key={kb.id} className="flex items-center gap-2.5 cursor-pointer rounded-md px-2 py-2 hover:bg-white">
-                    <Checkbox checked={formData.knowledgeBaseIds.includes(kb.id)} onCheckedChange={(checked) => {
-                setFormData((prev) => ({
-                    ...prev,
-                    knowledgeBaseIds: checked
-                        ? [...prev.knowledgeBaseIds, kb.id]
-                        : prev.knowledgeBaseIds.filter((id) => id !== kb.id),
-                }));
+                    <Checkbox checked={Array.isArray(formData.knowledgeBaseIds) && formData.knowledgeBaseIds.includes(kb.id)} onCheckedChange={(checked) => {
+                setFormData((prev) => {
+                    const currentIds = Array.isArray(prev.knowledgeBaseIds) ? prev.knowledgeBaseIds : [];
+                    return {
+                        ...prev,
+                        knowledgeBaseIds: checked
+                            ? [...currentIds, kb.id]
+                            : currentIds.filter((id) => id !== kb.id),
+                    };
+                });
             }}/>
                     <span className="text-sm text-slate-700 truncate">{kb.title}</span>
                   </label>)))}

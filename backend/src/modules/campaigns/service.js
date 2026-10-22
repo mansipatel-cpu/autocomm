@@ -95,7 +95,14 @@ export class CampaignService {
   }
 
   static async createWhatsAppCampaign(clientId, data, userId, userName) {
-    const { name, description, templateId, templateName, scheduleAt, enableAutoRetry, groupIds, contactIds } = data;
+    const name = data.name;
+    const description = data.description || '';
+    const templateId = data.templateId;
+    const templateName = data.templateName;
+    const scheduleAt = data.scheduleAt || data.scheduledAt;
+    const enableAutoRetry = data.enableAutoRetry ?? data.autoRetry;
+    const groupIds = data.groupIds;
+    const contactIds = data.contactIds || (Array.isArray(data.contactGroups) ? data.contactGroups : []);
 
     if (!name) {
       throw AppError.badRequest('Campaign name is required');

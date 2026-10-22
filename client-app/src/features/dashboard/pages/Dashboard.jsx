@@ -37,6 +37,7 @@ async function authFetch(url) {
     return response.json();
 }
 function formatStatus(status) {
+    const key = String(status || "draft").toLowerCase();
     const map = {
         in_progress: "Ongoing",
         sending: "Ongoing",
@@ -48,7 +49,7 @@ function formatStatus(status) {
         paused: "Draft",
         failed: "Failed",
     };
-    return map[status] || status.replace(/_/g, " ");
+    return map[key] || key.replace(/_/g, " ");
 }
 function statusClass(label) {
     switch (label) {
@@ -67,10 +68,26 @@ function statusClass(label) {
             return "bg-slate-100 text-slate-600";
     }
 }
+function extractArray(raw, ...keys) {
+    if (Array.isArray(raw)) return raw;
+    if (!raw || typeof raw !== "object") return [];
+    for (const k of keys) {
+        if (Array.isArray(raw[k])) return raw[k];
+    }
+    if (Array.isArray(raw.data)) return raw.data;
+    if (raw.data && typeof raw.data === "object") {
+        for (const k of keys) {
+            if (Array.isArray(raw.data[k])) return raw.data[k];
+        }
+    }
+    return [];
+}
 function contactDisplayName(contact) {
-    const name = contact.names?.[0];
-    const full = `${name?.firstName || ""} ${name?.lastName || ""}`.trim();
-    return full || contact.email || contact.phone || "Unknown";
+    if (!contact) return "Unknown";
+    const name = contact.names?.[0] || contact.name;
+    const full = typeof name === "string" ? name : `${name?.firstName || ""} ${name?.lastName || ""}`.trim();
+    const val = full || contact.email || contact.phone || contact.phoneNumber || "Unknown";
+    return String(val || "Unknown");
 }
 function contactStatusLabel(status) {
     if (status === "pending")
@@ -80,10 +97,11 @@ function contactStatusLabel(status) {
     return "Inactive";
 }
 function templatePreview(tpl) {
+    if (!tpl) return "—";
     const body = tpl.body || tpl.content;
     if (typeof body === "string" && body.trim())
         return body;
-    const text = tpl.components?.find?.((c) => c.type === "BODY")?.text;
+    const text = tpl.components?.find?.((c) => c?.type === "BODY")?.text;
     return text || "—";
 }
 export default function Dashboard() {
@@ -119,10 +137,20 @@ export default function Dashboard() {
     }, [isDemoMode, setActions]);
     const { data: rawContacts = [] } = useQuery({
         queryKey: ["/api/contacts/deduplicated"],
+        queryFn: async () => {
+            try {
+                const res = await authFetch("/api/contacts/deduplicated");
+                if (Array.isArray(res)) return res;
+                if (Array.isArray(res?.contacts)) return res.contacts;
+                if (Array.isArray(res?.data?.contacts)) return res.data.contacts;
+                if (Array.isArray(res?.data)) return res.data;
+                return [];
+            } catch {
+                return [];
+            }
+        },
     });
-    const contacts = Array.isArray(rawContacts)
-        ? rawContacts
-        : (rawContacts?.contacts || rawContacts?.data?.contacts || rawContacts?.data || []);
+    const contacts = extractArray(rawContacts, "contacts", "data", "items");
 
     const { data: rawVoiceCampaigns = [] } = useQuery({
         queryKey: ["/api/campaigns"],
@@ -139,34 +167,44 @@ export default function Dashboard() {
             }
         },
     });
-    const voiceCampaigns = Array.isArray(rawVoiceCampaigns)
-        ? rawVoiceCampaigns
-        : (rawVoiceCampaigns?.data?.campaigns || rawVoiceCampaigns?.campaigns || []);
+    const voiceCampaigns = extractArray(rawVoiceCampaigns, "campaigns", "data", "items");
 
-    const { data: waCampaigns = [] } = useQuery({
+    const { data: rawWaCampaigns = [] } = useQuery({
         queryKey: ["/api/whatsapp/campaigns"],
         queryFn: async () => {
             try {
                 const result = await authFetch("/api/whatsapp/campaigns");
-                return Array.isArray(result) ? result : result?.data || [];
+                if (Array.isArray(result)) return result;
+                if (Array.isArray(result?.data?.campaigns)) return result.data.campaigns;
+                if (Array.isArray(result?.data)) return result.data;
+                if (Array.isArray(result?.campaigns)) return result.campaigns;
+                return [];
             }
             catch {
                 return [];
             }
         },
     });
-    const { data: waTemplates = [] } = useQuery({
+    const waCampaigns = extractArray(rawWaCampaigns, "campaigns", "data", "items");
+
+    const { data: rawWaTemplates = [] } = useQuery({
         queryKey: ["/api/whatsapp/templates"],
         queryFn: async () => {
             try {
                 const result = await authFetch("/api/whatsapp/templates?limit=6");
-                return Array.isArray(result) ? result : result?.data || [];
+                if (Array.isArray(result)) return result;
+                if (Array.isArray(result?.data?.templates)) return result.data.templates;
+                if (Array.isArray(result?.data)) return result.data;
+                if (Array.isArray(result?.templates)) return result.templates;
+                return [];
             }
             catch {
                 return [];
             }
         },
     });
+    const waTemplates = extractArray(rawWaTemplates, "templates", "data", "items");
+
     const { data: waStats } = useQuery({
         queryKey: ["/api/whatsapp/dashboard/stats"],
         queryFn: async () => {
@@ -183,72 +221,74 @@ export default function Dashboard() {
         queryFn: async () => {
             try {
                 const result = await authFetch("/api/prompt-templates");
-                return Array.isArray(result) ? result : result?.data || [];
+                if (Array.isArray(result)) return result;
+                if (Array.isArray(result?.data?.templates)) return result.data.templates;
+                if (Array.isArray(result?.data)) return result.data;
+                if (Array.isArray(result?.templates)) return result.templates;
+                return [];
             }
             catch {
                 return [];
             }
         },
     });
-    const promptTemplates = Array.isArray(rawPromptTemplates)
-        ? rawPromptTemplates
-        : (rawPromptTemplates?.data || []);
+    const promptTemplates = extractArray(rawPromptTemplates, "templates", "data", "items");
 
     if (isLoading) {
         return (<div className="flex items-center justify-center min-h-[400px]">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground"/>
       </div>);
     }
-    const incoming = dashboard?.callTypeStats?.incoming?.count || 0;
-    const outgoing = dashboard?.callTypeStats?.outgoing?.count || 0;
-    const incomingRate = dashboard?.callTypeStats?.incoming?.successRate || 0;
-    const outgoingRate = dashboard?.callTypeStats?.outgoing?.successRate || 0;
+    const incoming = Number(dashboard?.callTypeStats?.incoming?.count || 0);
+    const outgoing = Number(dashboard?.callTypeStats?.outgoing?.count || 0);
+    const incomingRate = Number(dashboard?.callTypeStats?.incoming?.successRate || 0);
+    const outgoingRate = Number(dashboard?.callTypeStats?.outgoing?.successRate || 0);
     const completedCalls = Math.round((incoming * incomingRate + outgoing * outgoingRate) / 100);
-    const failedCalls = Math.max(0, (dashboard?.totalCalls || 0) - completedCalls);
+    const failedCalls = Math.max(0, Number(dashboard?.totalCalls || 0) - completedCalls);
     const overviewCampaigns = [
-        ...voiceCampaigns.map((c) => ({
-            id: c.id,
-            name: c.name,
+        ...voiceCampaigns.filter(Boolean).map((c) => ({
+            id: c.id || c._id || Math.random().toString(),
+            name: c.name || "Untitled Campaign",
             type: "Auto Calling",
-            status: formatStatus(c.status),
-            audience: c.totalContacts || 0,
-            progress: c.totalContacts ? Math.min(100, Math.round(((c.completedCalls || 0) / c.totalContacts) * 100)) : 0,
+            status: formatStatus(c.status || "draft"),
+            audience: Number(c.totalContacts || 0),
+            progress: c.totalContacts ? Math.min(100, Math.round(((Number(c.completedCalls || 0)) / Number(c.totalContacts)) * 100)) : 0,
             created: c.createdAt,
-            href: `/campaigns/${c.id}`,
+            href: `/campaigns/${c.id || c._id || ''}`,
         })),
-        ...waCampaigns.map((c) => ({
-            id: c.id,
+        ...waCampaigns.filter(Boolean).map((c) => ({
+            id: c.id || c._id || Math.random().toString(),
             name: c.name || "Untitled campaign",
             type: "WhatsApp",
             status: formatStatus(c.status || "draft"),
-            audience: c.recipientCount || c.totalRecipients || 0,
+            audience: Number(c.recipientCount || c.totalRecipients || 0),
             progress: (c.recipientCount || c.totalRecipients)
-                ? Math.min(100, Math.round(((c.sentCount || 0) / (c.recipientCount || c.totalRecipients || 1)) * 100))
+                ? Math.min(100, Math.round(((Number(c.sentCount || 0)) / (Number(c.recipientCount || c.totalRecipients || 1))) * 100))
                 : 0,
             created: c.createdAt,
-            href: `/campaigns/whatsapp/${c.id}`,
+            href: `/campaigns/whatsapp/${c.id || c._id || ''}`,
         })),
     ]
-        .filter((c) => !search || c.name.toLowerCase().includes(search.toLowerCase()))
+        .filter((c) => !search || (c.name && String(c.name).toLowerCase().includes(String(search).toLowerCase())))
         .slice(0, 6);
     const totalCampaigns = voiceCampaigns.length + waCampaigns.length;
-    const ongoingCampaigns = voiceCampaigns.filter((c) => ["in_progress", "pending", "scheduled"].includes(c.status)).length +
-        waCampaigns.filter((c) => ["active", "sending", "scheduled"].includes(c.status || "")).length;
-    const recentContacts = Array.isArray(contacts) ? contacts.slice(0, 5) : [];
+    const ongoingCampaigns = voiceCampaigns.filter((c) => ["in_progress", "pending", "scheduled"].includes(c?.status)).length +
+        waCampaigns.filter((c) => ["active", "sending", "scheduled"].includes(c?.status || "")).length;
+    const recentContacts = contacts.slice(0, 5);
     const templateRows = [
-        ...waTemplates.map((tpl) => ({
-            id: `wa-${tpl.id}`,
+        ...waTemplates.filter(Boolean).map((tpl) => ({
+            id: `wa-${tpl.id || tpl._id || Math.random()}`,
             name: tpl.name || "Untitled",
             channel: "WhatsApp",
             preview: templatePreview(tpl),
-            status: formatStatus((tpl.status || "draft").toLowerCase()) === "Ongoing"
+            status: formatStatus(String(tpl.status || "draft").toLowerCase()) === "Ongoing"
                 ? "Active"
-                : formatStatus((tpl.status || "draft").toLowerCase()),
+                : formatStatus(String(tpl.status || "draft").toLowerCase()),
             href: "/templates",
         })),
-        ...promptTemplates.map((tpl) => ({
-            id: `call-${tpl.id}`,
-            name: tpl.name,
+        ...promptTemplates.filter(Boolean).map((tpl) => ({
+            id: `call-${tpl.id || tpl._id || Math.random()}`,
+            name: tpl.name || "Untitled",
             channel: "Calling",
             preview: tpl.firstMessage || tpl.description || tpl.systemPrompt || "—",
             status: "Active",
@@ -298,7 +338,7 @@ export default function Dashboard() {
                 <stat.icon className="h-4 w-4"/>
               </span>
               </div>
-            <p className="text-2xl font-bold text-slate-900 mt-2">{stat.value.toLocaleString()}</p>
+            <p className="text-2xl font-bold text-slate-900 mt-2">{Number(stat.value || 0).toLocaleString()}</p>
             {stat.hint ? <p className={`text-[11px] font-medium mt-1 ${stat.hintClass || "text-slate-500"}`}>{stat.hint}</p> : null}
               </div>))}
             </div>
@@ -307,7 +347,7 @@ export default function Dashboard() {
         <div className="rounded-2xl bg-white border border-slate-200 p-4 flex items-center justify-between shadow-sm min-h-[88px]">
               <div>
             <p className="text-xs text-slate-500">Completed Calls</p>
-            <p className="text-2xl font-bold text-slate-900 mt-1">{completedCalls.toLocaleString()}</p>
+            <p className="text-2xl font-bold text-slate-900 mt-1">{Number(completedCalls || 0).toLocaleString()}</p>
               </div>
           <span className="h-10 w-10 rounded-lg bg-violet-50 text-violet-600 flex items-center justify-center">
             <PhoneCall className="h-5 w-5"/>
@@ -316,7 +356,7 @@ export default function Dashboard() {
         <div className="rounded-2xl bg-white border border-slate-200 p-4 flex items-center justify-between shadow-sm min-h-[88px]">
             <div>
             <p className="text-xs text-slate-500">Failed Calls</p>
-            <p className="text-2xl font-bold text-slate-900 mt-1">{failedCalls.toLocaleString()}</p>
+            <p className="text-2xl font-bold text-slate-900 mt-1">{Number(failedCalls || 0).toLocaleString()}</p>
               </div>
           <span className="h-10 w-10 rounded-lg bg-red-50 text-red-500 flex items-center justify-center">
             <PhoneOff className="h-5 w-5"/>
@@ -358,7 +398,7 @@ export default function Dashboard() {
                   <TableCell>
                     <span className={`text-xs px-2 py-0.5 rounded-full ${statusClass(campaign.status)}`}>{campaign.status}</span>
                   </TableCell>
-                  <TableCell>{campaign.audience.toLocaleString()}</TableCell>
+                  <TableCell>{Number(campaign.audience || 0).toLocaleString()}</TableCell>
                   <TableCell className="min-w-[140px]">
                     <div className="flex items-center gap-2">
                       <div className="h-1.5 flex-1 rounded-full bg-slate-100 overflow-hidden">
@@ -368,7 +408,7 @@ export default function Dashboard() {
               </div>
                   </TableCell>
                   <TableCell className="text-muted-foreground text-sm">
-                    {campaign.created ? new Date(campaign.created).toLocaleDateString() : "—"}
+                    {campaign.created && !isNaN(new Date(campaign.created).getTime()) ? new Date(campaign.created).toLocaleDateString() : "—"}
                   </TableCell>
                   <TableCell className="text-right">
                     <button onClick={() => setLocation(campaign.href)} className="text-sm text-[#007BFF] hover:underline">
@@ -403,20 +443,20 @@ export default function Dashboard() {
                   No recent users to display.
                 </TableCell>
               </TableRow>) : (recentContacts.map((contact) => {
-            const label = contactStatusLabel(contact.status);
-            return (<TableRow key={contact.id}>
+            const label = contactStatusLabel(contact?.status);
+            return (<TableRow key={contact?.id || contact?._id || Math.random().toString()}>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <div className="h-8 w-8 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center text-xs font-semibold">
-                          {contactDisplayName(contact).charAt(0).toUpperCase()}
+                          {String(contactDisplayName(contact) || "U").charAt(0).toUpperCase()}
               </div>
                         <span className="font-medium text-foreground">{contactDisplayName(contact)}</span>
                       </div>
                     </TableCell>
-                    <TableCell className="text-muted-foreground">{contact.phone || "—"}</TableCell>
-                    <TableCell className="text-muted-foreground">{contact.campaigns?.[0]?.name || "—"}</TableCell>
+                    <TableCell className="text-muted-foreground">{contact?.phone || contact?.phoneNumber || "—"}</TableCell>
+                    <TableCell className="text-muted-foreground">{contact?.campaigns?.[0]?.name || "—"}</TableCell>
                     <TableCell className="text-muted-foreground">
-                      {contact.callCount ? `${contact.callCount} calls` : "—"}
+                      {contact?.callCount ? `${contact.callCount} calls` : "—"}
                     </TableCell>
                     <TableCell>
                       <span className={`text-xs px-2 py-0.5 rounded-full ${statusClass(label)}`}>{label}</span>
@@ -449,7 +489,7 @@ export default function Dashboard() {
                 <TableCell colSpan={5} className="text-center text-muted-foreground py-10">
                   No templates yet. Create one to get started.
                 </TableCell>
-              </TableRow>) : (templateRows.map((tpl) => (<TableRow key={tpl.id}>
+              </TableRow>) : (templateRows.map((tpl) => (<TableRow key={tpl.id || tpl._id || Math.random().toString()}>
                   <TableCell className="font-medium text-foreground">{tpl.name}</TableCell>
                   <TableCell>
                     <span className={`text-xs px-2 py-0.5 rounded-full ${tpl.channel === "WhatsApp" ? "bg-emerald-100 text-emerald-700" : "bg-violet-100 text-violet-700"}`}>

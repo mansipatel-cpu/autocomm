@@ -21,45 +21,8 @@ const BulkImport = () => {
     const [uploadedFile, setUploadedFile] = useState(null);
     const [importStatus, setImportStatus] = useState("idle");
     const [showSteps, setShowSteps] = useState(false);
-    const importHistory = [
-        {
-            id: 1,
-            fileName: "customer_contacts_jan_2024.csv",
-            status: "completed",
-            totalRecords: 1247,
-            successfulImports: 1198,
-            errors: 49,
-            importedAt: "2024-01-20 14:30",
-            duration: "2m 15s",
-        },
-        {
-            id: 2,
-            fileName: "leads_database.xlsx",
-            status: "completed",
-            totalRecords: 892,
-            successfulImports: 876,
-            errors: 16,
-            importedAt: "2024-01-18 09:45",
-            duration: "1m 42s",
-        },
-        {
-            id: 3,
-            fileName: "newsletter_subscribers.csv",
-            status: "error",
-            totalRecords: 2341,
-            successfulImports: 0,
-            errors: 2341,
-            importedAt: "2024-01-15 16:20",
-            duration: "0m 30s",
-        },
-    ];
-    const validationResults = {
-        valid: 1198,
-        duplicates: 23,
-        invalidPhone: 15,
-        missingRequired: 11,
-        total: 1247,
-    };
+    const importHistory = [];
+    const validationResults = { valid: 0, duplicates: 0, invalidPhone: 0, missingRequired: 0, total: 0 };
     const steps = [
         {
             number: 1,
@@ -602,6 +565,7 @@ const BulkImport = () => {
               </h3>
 
               <div className="space-y-3 sm:space-y-4">
+                {importHistory.length === 0 && <p className="text-xs text-gray-500 text-center py-2">No recent imports</p>}
                 {importHistory.map((history) => (<div key={history.id} className="border border-gray-200 rounded-lg p-3 sm:p-4">
                     <div className="flex items-start justify-between gap-2 mb-2">
                       <div className="flex items-start space-x-2 flex-1 min-w-0">

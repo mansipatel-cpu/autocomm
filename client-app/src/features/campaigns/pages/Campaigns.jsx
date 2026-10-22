@@ -49,6 +49,7 @@ function parseDate(value) {
     return Number.isNaN(date.getTime()) ? null : date;
 }
 function formatStatus(status) {
+    const key = String(status || "").toLowerCase();
     const map = {
         in_progress: "Ongoing",
         sending: "Ongoing",
@@ -61,7 +62,7 @@ function formatStatus(status) {
         failed: "Failed",
         deleted: "Deleted",
     };
-    return map[status] || "Draft";
+    return map[key] || "Draft";
 }
 function statusClass(label) {
     switch (label) {
@@ -82,7 +83,7 @@ function statusClass(label) {
     }
 }
 function tagClass(tag) {
-    const key = tag.toLowerCase();
+    const key = String(tag || "").toLowerCase();
     if (key.includes("bill"))
         return "bg-orange-50 text-orange-600";
     if (key.includes("market") || key.includes("promo") || key.includes("offer"))
@@ -96,7 +97,7 @@ function tagClass(tag) {
     return "bg-slate-100 text-slate-600";
 }
 function initialsFromName(name) {
-    const parts = name.trim().split(/\s+/).filter(Boolean);
+    const parts = String(name || "").trim().split(/\s+/).filter(Boolean);
     if (parts.length === 0)
         return "AU";
     if (parts.length === 1)
@@ -105,11 +106,11 @@ function initialsFromName(name) {
 }
 function campaignCode(id, channel) {
     const suffix = channel === "whatsapp" ? "WA" : "AC";
-    const short = id.replace(/[^a-zA-Z0-9]/g, "").slice(-4).toUpperCase() || "0000";
+    const short = String(id || "").replace(/[^a-zA-Z0-9]/g, "").slice(-4).toUpperCase() || "0000";
     return `CMP-${short}-${suffix}`;
 }
 function callingSubtype(type) {
-    const key = (type || "").toLowerCase();
+    const key = String(type || "").toLowerCase();
     if (key.includes("ivr") || key.includes("survey"))
         return "IVR Survey";
     if (key.includes("ai") || key.includes("voice"))
@@ -119,6 +120,7 @@ function callingSubtype(type) {
     return type || "Outbound Call";
 }
 function daysUntilPurge(deletedAt) {
+    if (!deletedAt) return PURGE_DAYS;
     return Math.max(0, differenceInDays(addDays(deletedAt, PURGE_DAYS), new Date()));
 }
 export default function Campaigns() {
@@ -145,12 +147,55 @@ export default function Campaigns() {
     const { data: user, isLoading: userLoading } = useQuery({
         queryKey: ["/api/auth/me"],
     });
-    const { data: voiceCampaigns = [], isLoading: voiceLoading } = useQuery({
+    const { data: rawVoiceCampaigns = [], isLoading: voiceLoading } = useQuery({
         queryKey: ["/api/campaigns"],
+        queryFn: async () => {
+            try {
+                const response = await authFetch("/api/campaigns");
+                if (!response.ok) return [];
+                const result = await response.json();
+                if (Array.isArray(result)) return result;
+                if (Array.isArray(result?.data?.campaigns)) return result.data.campaigns;
+                if (Array.isArray(result?.data)) return result.data;
+                if (Array.isArray(result?.campaigns)) return result.campaigns;
+                return [];
+            } catch {
+                return [];
+            }
+        },
     });
-    const { data: deletedCampaigns = [] } = useQuery({
+    const voiceCampaigns = useMemo(() => {
+        if (Array.isArray(rawVoiceCampaigns)) return rawVoiceCampaigns;
+        if (Array.isArray(rawVoiceCampaigns?.data?.campaigns)) return rawVoiceCampaigns.data.campaigns;
+        if (Array.isArray(rawVoiceCampaigns?.campaigns)) return rawVoiceCampaigns.campaigns;
+        if (Array.isArray(rawVoiceCampaigns?.data)) return rawVoiceCampaigns.data;
+        return [];
+    }, [rawVoiceCampaigns]);
+
+    const { data: rawDeletedCampaigns = [] } = useQuery({
         queryKey: ["/api/campaigns/deleted"],
+        queryFn: async () => {
+            try {
+                const response = await authFetch("/api/campaigns/deleted");
+                if (!response.ok) return [];
+                const result = await response.json();
+                if (Array.isArray(result)) return result;
+                if (Array.isArray(result?.data?.campaigns)) return result.data.campaigns;
+                if (Array.isArray(result?.data)) return result.data;
+                if (Array.isArray(result?.campaigns)) return result.campaigns;
+                return [];
+            } catch {
+                return [];
+            }
+        },
     });
+    const deletedCampaigns = useMemo(() => {
+        if (Array.isArray(rawDeletedCampaigns)) return rawDeletedCampaigns;
+        if (Array.isArray(rawDeletedCampaigns?.data?.campaigns)) return rawDeletedCampaigns.data.campaigns;
+        if (Array.isArray(rawDeletedCampaigns?.campaigns)) return rawDeletedCampaigns.campaigns;
+        if (Array.isArray(rawDeletedCampaigns?.data)) return rawDeletedCampaigns.data;
+        return [];
+    }, [rawDeletedCampaigns]);
     const { data: deletedWaCampaigns = [] } = useQuery({
         queryKey: ["/api/whatsapp/campaigns/deleted"],
         queryFn: async () => {
@@ -197,8 +242,8 @@ export default function Campaigns() {
         },
     });
     const isPro = user?.planType === "pro";
-    const campaignsWithoutPhoneNumber = voiceCampaigns.filter((c) => !c.phoneNumberId && !c.sipPhoneNumberId && !c.plivoPhoneNumberId && c.status !== "completed");
-    const unassignedIds = campaignsWithoutPhoneNumber.map((c) => c.id);
+    const campaignsWithoutPhoneNumber = voiceCampaigns.filter((c) => !c?.phoneNumberId && !c?.sipPhoneNumberId && !c?.plivoPhoneNumberId && c?.status !== "completed");
+    const unassignedIds = campaignsWithoutPhoneNumber.map((c) => c?.id).filter(Boolean);
     useEffect(() => {
         if (userLoading || voiceLoading || !user || !isPro || unassignedIds.length === 0)
             return;
@@ -284,80 +329,82 @@ export default function Campaigns() {
             });
         },
     });
-    const waRows = useMemo(() => waCampaigns.map((campaign) => ({
-        id: campaign.id,
-        name: campaign.name || "Untitled campaign",
-        tag: campaign.templateName || "WhatsApp",
-        audience: campaign.recipientCount || campaign.totalRecipients || 0,
-        template: campaign.templateName || "—",
-        schedule: parseDate(campaign.scheduledAt)
-            ? format(parseDate(campaign.scheduledAt), "MMM d, yyyy")
+    const waRows = useMemo(() => (Array.isArray(waCampaigns) ? waCampaigns : []).map((campaign) => ({
+        id: campaign?.id || campaign?._id,
+        name: campaign?.name || "Untitled campaign",
+        tag: campaign?.templateName || "WhatsApp",
+        audience: Number(campaign?.recipientCount || campaign?.totalRecipients || 0),
+        template: campaign?.templateName || "—",
+        schedule: parseDate(campaign?.scheduledAt)
+            ? format(parseDate(campaign?.scheduledAt), "MMM d, yyyy")
             : "Immediate",
-        status: formatStatus((campaign.status || "draft").toLowerCase()),
-        sent: campaign.sentCount || 0,
-        delivered: campaign.deliveredCount || 0,
-        failed: campaign.failedCount || 0,
-        createdAt: parseDate(campaign.createdAt),
-        createdBy: campaign.createdBy || "All",
+        status: formatStatus(campaign?.status || "draft"),
+        sent: Number(campaign?.sentCount || 0),
+        delivered: Number(campaign?.deliveredCount || 0),
+        failed: Number(campaign?.failedCount || 0),
+        createdAt: parseDate(campaign?.createdAt),
+        createdBy: campaign?.createdBy || "All",
         channel: "whatsapp",
     })), [waCampaigns]);
-    const voiceRows = useMemo(() => voiceCampaigns.map((campaign) => ({
-        id: campaign.id,
-        name: campaign.name,
-        tag: campaign.type || "Calling",
-        audience: campaign.totalContacts || 0,
-        template: campaign.type || "Voice script",
-        schedule: parseDate(campaign.scheduledFor)
-            ? format(parseDate(campaign.scheduledFor), "MMM d, yyyy")
+    const voiceRows = useMemo(() => (Array.isArray(voiceCampaigns) ? voiceCampaigns : []).map((campaign) => ({
+        id: campaign?.id || campaign?._id,
+        name: campaign?.name || "Untitled Campaign",
+        tag: campaign?.type || "Calling",
+        audience: Number(campaign?.totalContacts || 0),
+        template: campaign?.type || "Voice script",
+        schedule: parseDate(campaign?.scheduledFor)
+            ? format(parseDate(campaign?.scheduledFor), "MMM d, yyyy")
             : "Immediate",
-        status: formatStatus(campaign.status),
-        sent: campaign.completedCalls || 0,
-        delivered: campaign.successfulCalls || 0,
-        failed: campaign.failedCalls || 0,
-        createdAt: parseDate(campaign.createdAt),
+        status: formatStatus(campaign?.status),
+        sent: Number(campaign?.completedCalls || 0),
+        delivered: Number(campaign?.successfulCalls || 0),
+        failed: Number(campaign?.failedCalls || 0),
+        createdAt: parseDate(campaign?.createdAt),
         createdBy: "All",
         channel: "calling",
         rawVoice: campaign,
     })), [voiceCampaigns]);
     const deletedRows = useMemo(() => {
         const actor = user?.name || "Admin User";
-        const fromCalling = deletedCampaigns.map((campaign) => {
-            const deletedAt = parseDate(campaign.deletedAt) || parseDate(campaign.createdAt) || new Date();
+        const fromCalling = (Array.isArray(deletedCampaigns) ? deletedCampaigns : []).map((campaign) => {
+            const deletedAt = parseDate(campaign?.deletedAt) || parseDate(campaign?.createdAt) || new Date();
+            const campId = campaign?.id || campaign?._id;
             return {
-                id: campaign.id,
-                name: campaign.name,
-                code: campaignCode(campaign.id, "calling"),
+                id: campId,
+                name: campaign?.name || "Untitled Campaign",
+                code: campaignCode(campId, "calling"),
                 channel: "calling",
                 channelLabel: "Auto Calling",
-                subtype: callingSubtype(campaign.type),
-                audience: campaign.totalContacts || 0,
+                subtype: callingSubtype(campaign?.type),
+                audience: Number(campaign?.totalContacts || 0),
                 segment: "All Contacts",
                 deletedAt,
                 deletedBy: actor,
                 deletedByInitials: initialsFromName(actor),
             };
         });
-        const fromWhatsApp = deletedWaCampaigns.map((campaign) => {
-            const deletedAt = parseDate(campaign.deletedAt) ||
-                parseDate(campaign.updatedAt) ||
-                parseDate(campaign.createdAt) ||
+        const fromWhatsApp = (Array.isArray(deletedWaCampaigns) ? deletedWaCampaigns : []).map((campaign) => {
+            const deletedAt = parseDate(campaign?.deletedAt) ||
+                parseDate(campaign?.updatedAt) ||
+                parseDate(campaign?.createdAt) ||
                 new Date();
-            const deletedBy = campaign.createdByName?.trim() || actor;
+            const deletedBy = campaign?.createdByName?.trim() || actor;
+            const campId = campaign?.id || campaign?._id;
             return {
-                id: campaign.id,
-                name: campaign.name || "Untitled campaign",
-                code: campaignCode(campaign.id, "whatsapp"),
+                id: campId,
+                name: campaign?.name || "Untitled campaign",
+                code: campaignCode(campId, "whatsapp"),
                 channel: "whatsapp",
                 channelLabel: "WhatsApp",
-                subtype: campaign.templateName || campaign.type || campaign.campaignType || "WhatsApp",
-                audience: campaign.recipientCount || campaign.totalRecipients || 0,
+                subtype: campaign?.templateName || campaign?.type || campaign?.campaignType || "WhatsApp",
+                audience: Number(campaign?.recipientCount || campaign?.totalRecipients || 0),
                 segment: "All Contacts",
                 deletedAt,
                 deletedBy,
                 deletedByInitials: initialsFromName(deletedBy),
             };
         });
-        return [...fromWhatsApp, ...fromCalling].sort((a, b) => b.deletedAt.getTime() - a.deletedAt.getTime());
+        return [...fromWhatsApp, ...fromCalling].sort((a, b) => (b.deletedAt?.getTime() || 0) - (a.deletedAt?.getTime() || 0));
     }, [deletedCampaigns, deletedWaCampaigns, user?.name]);
     const rows = tab === "whatsapp" ? waRows : voiceRows;
     const createdByOptions = Array.from(new Set(waRows.map((row) => row.createdBy).filter((value) => value && value !== "All")));
@@ -368,11 +415,14 @@ export default function Campaigns() {
         const query = tableSearch.trim().toLowerCase();
         const now = new Date();
         return rows.filter((row) => {
-            const matchesSearch = !query || row.name.toLowerCase().includes(query) || row.template.toLowerCase().includes(query);
-            const matchesStatus = statusFilter === "all" || row.status.toLowerCase() === statusFilter;
-            const matchesCreatedBy = createdByFilter === "all" || row.createdBy === createdByFilter;
-            const matchesTemplate = templateFilter === "all" || row.template === templateFilter;
-            const created = row.createdAt;
+            const rowName = String(row?.name || "").toLowerCase();
+            const rowTemplate = String(row?.template || "").toLowerCase();
+            const rowStatus = String(row?.status || "").toLowerCase();
+            const matchesSearch = !query || rowName.includes(query) || rowTemplate.includes(query);
+            const matchesStatus = statusFilter === "all" || rowStatus === statusFilter;
+            const matchesCreatedBy = createdByFilter === "all" || row?.createdBy === createdByFilter;
+            const matchesTemplate = templateFilter === "all" || row?.template === templateFilter;
+            const created = row?.createdAt;
             const matchesDate = dateFilter === "all" ||
                 (created && dateFilter === "month" && isAfter(created, startOfMonth(now))) ||
                 (created && dateFilter === "30d" && isAfter(created, subDays(now, 30))) ||
@@ -384,16 +434,20 @@ export default function Campaigns() {
         const query = tableSearch.trim().toLowerCase();
         const now = new Date();
         return deletedRows.filter((row) => {
+            const rowName = String(row?.name || "").toLowerCase();
+            const rowCode = String(row?.code || "").toLowerCase();
+            const rowChannelLabel = String(row?.channelLabel || "").toLowerCase();
+            const rowSubtype = String(row?.subtype || "").toLowerCase();
             const matchesSearch = !query ||
-                row.name.toLowerCase().includes(query) ||
-                row.code.toLowerCase().includes(query) ||
-                row.channelLabel.toLowerCase().includes(query) ||
-                row.subtype.toLowerCase().includes(query);
-            const matchesType = deletedTypeFilter === "all" || row.channel === deletedTypeFilter;
+                rowName.includes(query) ||
+                rowCode.includes(query) ||
+                rowChannelLabel.includes(query) ||
+                rowSubtype.includes(query);
+            const matchesType = deletedTypeFilter === "all" || row?.channel === deletedTypeFilter;
             const matchesDate = deletedDateFilter === "all" ||
-                (deletedDateFilter === "7d" && isAfter(row.deletedAt, subDays(now, 7))) ||
-                (deletedDateFilter === "30d" && isAfter(row.deletedAt, subDays(now, 30))) ||
-                (deletedDateFilter === "month" && isAfter(row.deletedAt, startOfMonth(now)));
+                (deletedDateFilter === "7d" && row?.deletedAt && isAfter(row.deletedAt, subDays(now, 7))) ||
+                (deletedDateFilter === "30d" && row?.deletedAt && isAfter(row.deletedAt, subDays(now, 30))) ||
+                (deletedDateFilter === "month" && row?.deletedAt && isAfter(row.deletedAt, startOfMonth(now)));
             return matchesSearch && matchesType && matchesDate;
         });
     }, [deletedRows, tableSearch, deletedTypeFilter, deletedDateFilter]);
@@ -419,8 +473,8 @@ export default function Campaigns() {
     const hasFilters = tab === "deleted"
         ? Boolean(tableSearch) || deletedTypeFilter !== "all" || deletedDateFilter !== "all"
         : Boolean(tableSearch) || statusFilter !== "all" || dateFilter !== "all" || createdByFilter !== "all" || templateFilter !== "all";
-    const activeRuns = voiceCampaigns.filter((c) => c.status === "in_progress").length +
-        waCampaigns.filter((c) => ["active", "sending"].includes(c.status || "")).length;
+    const activeRuns = (Array.isArray(voiceCampaigns) ? voiceCampaigns : []).filter((c) => c?.status === "in_progress").length +
+        (Array.isArray(waCampaigns) ? waCampaigns : []).filter((c) => ["active", "sending"].includes(c?.status || "")).length;
     const startItem = totalItems === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1;
     const endItem = Math.min(currentPage * itemsPerPage, totalItems);
     const isLoading = tab === "whatsapp" ? waLoading : tab === "calling" ? voiceLoading : false;
@@ -682,7 +736,7 @@ export default function Campaigns() {
                           </div>
                         </TableCell>
                         <TableCell className="px-3 py-3">
-                          <p className="text-sm font-medium text-slate-800">{row.audience.toLocaleString()} Recipients</p>
+                          <p className="text-sm font-medium text-slate-800">{Number(row.audience || 0).toLocaleString()} Recipients</p>
                           <p className="text-xs text-slate-400 mt-0.5">{row.segment}</p>
                         </TableCell>
                         <TableCell className="px-3 py-3">
@@ -749,7 +803,7 @@ export default function Campaigns() {
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell className="px-1.5 py-2 text-sm text-slate-700">{row.audience.toLocaleString()}</TableCell>
+                    <TableCell className="px-1.5 py-2 text-sm text-slate-700">{Number(row.audience || 0).toLocaleString()}</TableCell>
                     <TableCell className="px-1.5 py-2 text-sm text-slate-700 truncate" title={row.template}>{row.template}</TableCell>
                     <TableCell className="px-1.5 py-2 text-sm text-slate-500 truncate" title={row.schedule}>{row.schedule}</TableCell>
                     <TableCell className="px-1.5 py-2">
@@ -758,9 +812,9 @@ export default function Campaigns() {
                         {row.status}
                       </span>
                     </TableCell>
-                    <TableCell className="px-1.5 py-2 text-sm text-slate-700 text-center">{row.sent.toLocaleString()}</TableCell>
-                    <TableCell className="px-1.5 py-2 text-sm text-emerald-600 text-center">{row.delivered.toLocaleString()}</TableCell>
-                    <TableCell className="px-1.5 py-2 text-sm text-red-500 text-center">{row.failed.toLocaleString()}</TableCell>
+                    <TableCell className="px-1.5 py-2 text-sm text-slate-700 text-center">{Number(row.sent || 0).toLocaleString()}</TableCell>
+                    <TableCell className="px-1.5 py-2 text-sm text-emerald-600 text-center">{Number(row.delivered || 0).toLocaleString()}</TableCell>
+                    <TableCell className="px-1.5 py-2 text-sm text-red-500 text-center">{Number(row.failed || 0).toLocaleString()}</TableCell>
                     <TableCell className="px-1.5 py-2 text-sm text-slate-500 truncate">
                       {row.createdAt ? format(row.createdAt, "MMM d, yyyy") : "—"}
                     </TableCell>

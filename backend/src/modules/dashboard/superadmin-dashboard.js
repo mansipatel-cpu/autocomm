@@ -42,53 +42,53 @@ router.get('/metrics', async (req, res, next) => {
       Client.countDocuments({ status: CLIENT_STATUS.SUSPENDED }).catch(() => 0),
       User.countDocuments({ role: { $ne: ROLES.SUPER_ADMIN } }).catch(() => 0),
       User.countDocuments({ role: { $ne: ROLES.SUPER_ADMIN }, status: USER_STATUS.ACTIVE }).catch(() => 0),
-      Campaign.countDocuments().catch(() => 14),
-      Campaign.countDocuments({ status: 'ongoing' }).catch(() => 2),
-      Message.countDocuments().catch(() => 24580),
-      CallRecord.countDocuments().catch(() => 8420),
-      Contact.countDocuments().catch(() => 12450),
-      Template.countDocuments().catch(() => 48),
-      Agent.countDocuments().catch(() => 6),
-      ConversationFlow.countDocuments().catch(() => 4),
-      PhoneNumber.countDocuments().catch(() => 8),
+      Campaign.countDocuments().catch(() => 0),
+      Campaign.countDocuments({ status: 'ongoing' }).catch(() => 0),
+      Message.countDocuments().catch(() => 0),
+      CallRecord.countDocuments().catch(() => 0),
+      Contact.countDocuments().catch(() => 0),
+      Template.countDocuments().catch(() => 0),
+      Agent.countDocuments().catch(() => 0),
+      ConversationFlow.countDocuments().catch(() => 0),
+      PhoneNumber.countDocuments().catch(() => 0),
     ]);
 
     // Compute platform-wide aggregations matching Section 21.2 15 cards
     const stats = {
       clients: {
-        total: totalClients,
-        active: activeClients,
-        inactive: inactiveClients,
-        suspended: suspendedClients,
+        total: totalClients ?? 0,
+        active: activeClients ?? 0,
+        inactive: inactiveClients ?? 0,
+        suspended: suspendedClients ?? 0,
       },
       users: {
-        total: totalClientUsers,
-        active: activeUsers,
+        total: totalClientUsers ?? 0,
+        active: activeUsers ?? 0,
       },
       campaigns: {
-        total: totalCampaigns || 14,
-        active: activeCampaigns || 2,
+        total: totalCampaigns ?? 0,
+        active: activeCampaigns ?? 0,
       },
       messages: {
-        total: totalMessages || 24580,
+        total: totalMessages ?? 0,
       },
       calls: {
-        total: totalCalls || 8420,
+        total: totalCalls ?? 0,
       },
       contacts: {
-        total: totalContacts || 12450,
+        total: totalContacts ?? 0,
       },
       templates: {
-        total: totalTemplates || 48,
+        total: totalTemplates ?? 0,
       },
       aiAgents: {
-        total: totalAiAgents || 6,
+        total: totalAiAgents ?? 0,
       },
       activeFlows: {
-        total: totalActiveFlows || 4,
+        total: totalActiveFlows ?? 0,
       },
       phoneNumbers: {
-        total: totalPhoneNumbers || 8,
+        total: totalPhoneNumbers ?? 0,
       },
     };
 

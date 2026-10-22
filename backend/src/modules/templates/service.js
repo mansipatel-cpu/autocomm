@@ -164,6 +164,11 @@ export class TemplateService {
     return { success: true, synchronizedCount: updated.modifiedCount };
   }
 
+  static async getTemplateById(clientId, id) {
+    const template = await Template.findOne({ _id: id, clientId }).lean();
+    return template;
+  }
+
   static async deleteTemplate(clientId, id) {
     const template = await Template.findOneAndDelete({ _id: id, clientId });
     if (!template) throw AppError.notFound('Template not found');

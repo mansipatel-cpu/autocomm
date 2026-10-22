@@ -19,7 +19,7 @@ export const ManageCreditsModal = ({ isOpen, onClose, onUpdated }) => {
           const clientList = res.data.data.clients || [];
           setClients(clientList);
           if (clientList.length > 0) {
-            setSelectedClientId(clientList[0]._id);
+            setSelectedClientId(clientList[0].id || clientList[0]._id);
             setCurrentCredits(clientList[0].credits || 0);
             setCredits(clientList[0].credits || 0);
           }
@@ -35,7 +35,7 @@ export const ManageCreditsModal = ({ isOpen, onClose, onUpdated }) => {
 
   const handleClientChange = (id) => {
     setSelectedClientId(id);
-    const found = clients.find((c) => c._id === id);
+    const found = clients.find((c) => String(c.id || c._id) === String(id));
     if (found) {
       setCurrentCredits(found.credits || 0);
       setCredits(found.credits || 0);
@@ -93,7 +93,7 @@ export const ManageCreditsModal = ({ isOpen, onClose, onUpdated }) => {
               className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-indigo-500"
             >
               {clients.map((c) => (
-                <option key={c._id} value={c._id}>
+                <option key={c.id || c._id} value={c.id || c._id}>
                   {c.companyName} ({c.clientCode}) - Balance: {c.credits?.toLocaleString() || 0}
                 </option>
               ))}

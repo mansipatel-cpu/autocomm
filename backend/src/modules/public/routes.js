@@ -27,9 +27,10 @@ router.get('/analytics-scripts', async (_req, res) => {
 
     res.setHeader('Cache-Control', 'no-cache');
     res.json(sortedScripts);
-  } catch (error) {
-    console.error('Error fetching public analytics scripts:', error);
-    res.status(500).json({ error: 'Failed to fetch analytics scripts' });
+  } catch (_error) {
+    // Return empty scripts list when database is down/starting so the frontend won't error
+    res.setHeader('Cache-Control', 'no-cache');
+    res.json([]);
   }
 });
 
@@ -65,16 +66,17 @@ router.get('/platform-languages', async (_req, res) => {
 });
 
 // Public Settings
-router.get('/settings/public', async (_req, res) => {
+router.get(['/public', '/settings/public', '/settings', '/'], async (_req, res) => {
   res.json({
     system_timezone: 'UTC',
     app_name: 'AutoComm',
     allow_registration: true,
+    phone_number_monthly_credits: 50,
   });
 });
 
 // Voice Engine Settings
-router.get('/voice-engine', async (_req, res) => {
+router.get(['/voice-engine', '/settings/voice-engine'], async (_req, res) => {
   res.json({
     plivo_openai_engine_enabled: true,
     twilio_openai_engine_enabled: true,

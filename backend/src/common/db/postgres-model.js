@@ -44,12 +44,42 @@ export const formatRow = (row, model = null) => {
   const doc = {};
   for (const [key, value] of Object.entries(row)) {
     const camelKey = toCamelCase(key);
-    doc[camelKey] = value;
-    doc[key] = value;
+    if (typeof value === 'string' && (camelKey === 'temperature' || camelKey === 'voiceSpeed' || camelKey === 'voiceStability' || camelKey === 'voiceSimilarityBoost')) {
+      const num = parseFloat(value);
+      doc[camelKey] = isNaN(num) ? value : num;
+    } else {
+      doc[camelKey] = value;
+    }
+
+    // Provide snake_case alias as non-enumerable so it does not duplicate in JSON response
+    if (camelKey !== key) {
+      Object.defineProperty(doc, key, {
+        get() {
+          return this[camelKey];
+        },
+        set(val) {
+          this[camelKey] = val;
+        },
+        enumerable: false,
+        configurable: true,
+      });
+    }
   }
+
   if (row.id !== undefined) {
-    doc._id = row.id;
     doc.id = row.id;
+
+    // Provide _id alias as non-enumerable for Mongoose compatibility without duplicate key in JSON
+    Object.defineProperty(doc, '_id', {
+      get() {
+        return this.id;
+      },
+      set(val) {
+        this.id = val;
+      },
+      enumerable: false,
+      configurable: true,
+    });
   }
 
   // Attach Mongoose-compatible .save() method
@@ -149,6 +179,28 @@ export class QueryChain {
   }
 }
 
+const tableColumnsCache = new Map();
+
+async function getValidColumns(tableName) {
+  if (tableColumnsCache.has(tableName)) {
+    return tableColumnsCache.get(tableName);
+  }
+  try {
+    const res = await query(
+      `SELECT column_name FROM information_schema.columns WHERE table_name = $1`,
+      [tableName]
+    );
+    if (res && res.rows && res.rows.length > 0) {
+      const colSet = new Set(res.rows.map((r) => r.column_name));
+      tableColumnsCache.set(tableName, colSet);
+      return colSet;
+    }
+  } catch (err) {
+    // If table inspection fails, allow insert to proceed
+  }
+  return null;
+}
+
 export class PgModel {
   constructor(name, schema) {
     this.name = name;
@@ -174,10 +226,17 @@ export class PgModel {
       const values = [];
       const placeholders = [];
       let idx = 1;
+      const validCols = await getValidColumns(this.tableName);
 
       for (const [key, val] of Object.entries(data)) {
-        if (key === '_id') continue;
+        if (key === '_id' || val === undefined) continue;
         const col = toSnakeCase(key);
+
+        // Filter out columns that do not exist in the database table
+        if (validCols && !validCols.has(col)) {
+          continue;
+        }
+
         keys.push(col);
 
         // Convert nested objects/arrays to JSON string for Postgres JSONB
@@ -215,11 +274,13 @@ export class PgModel {
       const values = [];
       const seenCols = new Set(['id', 'updated_at']);
       let idx = 1;
+      const validCols = await getValidColumns(this.tableName);
 
       for (const [key, val] of Object.entries(data)) {
-        if (key === '_id' || key === 'id' || key === 'save' || key === 'toObject' || key === 'toJSON') continue;
+        if (key === '_id' || key === 'id' || key === 'save' || key === 'toObject' || key === 'toJSON' || val === undefined) continue;
         const col = toSnakeCase(key);
         if (seenCols.has(col)) continue;
+        if (validCols && !validCols.has(col)) continue;
         seenCols.add(col);
 
         const formattedVal =
@@ -318,8 +379,23 @@ export class PgModel {
       for (const [key, val] of Object.entries(filter)) {
         if (key.startsWith('$')) continue;
         const col = key === '_id' ? 'id' : toSnakeCase(key);
-        whereClauses.push(`${col} = $${idx++}`);
-        values.push(val);
+        if (val && typeof val === 'object' && Array.isArray(val.$nin)) {
+          if (val.$nin.length > 0) {
+            const ninPlaceholders = val.$nin.map(() => `$${idx++}`).join(', ');
+            values.push(...val.$nin);
+            whereClauses.push(`${col} NOT IN (${ninPlaceholders})`);
+          }
+        } else if (val && typeof val === 'object' && val.$ne !== undefined) {
+          if (val.$ne === null) {
+            whereClauses.push(`${col} IS NOT NULL`);
+          } else {
+            whereClauses.push(`${col} != $${idx++}`);
+            values.push(val.$ne);
+          }
+        } else {
+          whereClauses.push(`${col} = $${idx++}`);
+          values.push(val);
+        }
       }
 
       const whereStr = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
@@ -358,6 +434,21 @@ export class PgModel {
           }
           if (orConditions.length > 0) {
             whereClauses.push(`(${orConditions.join(' OR ')})`);
+          }
+        } else if (val && typeof val === 'object' && Array.isArray(val.$nin)) {
+          const col = key === '_id' ? 'id' : toSnakeCase(key);
+          if (val.$nin.length > 0) {
+            const ninPlaceholders = val.$nin.map(() => `$${idx++}`).join(', ');
+            values.push(...val.$nin);
+            whereClauses.push(`${col} NOT IN (${ninPlaceholders})`);
+          }
+        } else if (val && typeof val === 'object' && val.$ne !== undefined) {
+          const col = key === '_id' ? 'id' : toSnakeCase(key);
+          if (val.$ne === null) {
+            whereClauses.push(`${col} IS NOT NULL`);
+          } else {
+            whereClauses.push(`${col} != $${idx++}`);
+            values.push(val.$ne);
           }
         } else if (val && typeof val === 'object' && val.$in) {
           const col = key === '_id' ? 'id' : toSnakeCase(key);

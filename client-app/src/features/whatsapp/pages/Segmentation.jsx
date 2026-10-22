@@ -20,76 +20,7 @@ const Segmentation = () => {
     const [searchTerm, setSearchTerm] = useState("");
     const [filterType, setFilterType] = useState("all");
     const [selectedSegments, setSelectedSegments] = useState([]);
-    const segments = [
-        {
-            id: 1,
-            name: "Active Customers",
-            type: "behavioral",
-            description: "Customers who made a purchase in the last 30 days",
-            contacts: 1247,
-            criteria: [
-                { field: "Last Purchase", operator: "less than", value: "30 days ago" },
-                { field: "Status", operator: "equals", value: "customer" },
-            ],
-            lastUpdated: "2 hours ago",
-            createdAt: "2024-01-15",
-        },
-        {
-            id: 2,
-            name: "High-Value Leads",
-            type: "demographic",
-            description: "Leads with potential value over $10,000",
-            contacts: 892,
-            criteria: [
-                { field: "Lead Score", operator: "greater than", value: "80" },
-                {
-                    field: "Potential Value",
-                    operator: "greater than",
-                    value: "$10,000",
-                },
-            ],
-            lastUpdated: "1 day ago",
-            createdAt: "2024-01-12",
-        },
-        {
-            id: 3,
-            name: "Cart Abandoners",
-            type: "behavioral",
-            description: "Users who abandoned their shopping cart",
-            contacts: 634,
-            criteria: [
-                { field: "Cart Status", operator: "equals", value: "abandoned" },
-                { field: "Last Activity", operator: "less than", value: "7 days ago" },
-            ],
-            lastUpdated: "5 hours ago",
-            createdAt: "2024-01-10",
-        },
-        {
-            id: 4,
-            name: "US Customers",
-            type: "geographic",
-            description: "All customers located in the United States",
-            contacts: 2341,
-            criteria: [
-                { field: "Country", operator: "equals", value: "United States" },
-            ],
-            lastUpdated: "3 days ago",
-            createdAt: "2024-01-08",
-        },
-        {
-            id: 5,
-            name: "Newsletter Subscribers",
-            type: "engagement",
-            description: "Contacts who subscribed to the newsletter",
-            contacts: 3456,
-            criteria: [
-                { field: "Subscribed", operator: "equals", value: "true" },
-                { field: "Subscription Date", operator: "not empty", value: "" },
-            ],
-            lastUpdated: "1 week ago",
-            createdAt: "2024-01-05",
-        },
-    ];
+    const segments = [];
     const filteredSegments = segments.filter((segment) => {
         const matchesSearch = segment.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             segment.description.toLowerCase().includes(searchTerm.toLowerCase());

@@ -56,56 +56,7 @@ const BotFlowBuilder = () => {
             description: 'Get user response'
         }
     ];
-    const flowNodes = [
-        {
-            id: 1,
-            type: 'trigger',
-            title: 'Welcome Trigger',
-            content: 'Keywords: hello, hi, start',
-            position: { x: 100, y: 100 },
-            connections: [2]
-        },
-        {
-            id: 2,
-            type: 'message',
-            title: 'Welcome Message',
-            content: 'Hello! Welcome to our service. How can I help you today?',
-            position: { x: 300, y: 100 },
-            connections: [3]
-        },
-        {
-            id: 3,
-            type: 'condition',
-            title: 'Check Intent',
-            content: 'If contains "product" → 4\nIf contains "support" → 5\nElse → 6',
-            position: { x: 500, y: 100 },
-            connections: [4, 5, 6]
-        },
-        {
-            id: 4,
-            type: 'message',
-            title: 'Product Info',
-            content: 'Here are our products...',
-            position: { x: 400, y: 250 },
-            connections: []
-        },
-        {
-            id: 5,
-            type: 'message',
-            title: 'Support Message',
-            content: 'I\'ll connect you with support...',
-            position: { x: 600, y: 250 },
-            connections: []
-        },
-        {
-            id: 6,
-            type: 'collect',
-            title: 'Collect Info',
-            content: 'Can you tell me more about what you need?',
-            position: { x: 500, y: 300 },
-            connections: []
-        }
-    ];
+    const flowNodes = [];
     const templates = [
         {
             id: 1,

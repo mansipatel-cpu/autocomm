@@ -19,74 +19,7 @@ import { Smartphone, Plus, Settings, CheckCircle, AlertCircle, XCircle, RefreshC
 const MultiNumber = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState('all');
-    const [selectedNumbers, setSelectedNumbers] = useState([]);
-    // Mock data for multiple WhatsApp numbers
-    const numbers = [
-        {
-            id: 1,
-            phoneNumber: '+1 (555) 123-4567',
-            displayName: 'Main Support',
-            status: 'active',
-            health: 'healthy',
-            businessName: 'TechCorp Solutions',
-            country: 'United States',
-            messagesCount: 1247,
-            contactsCount: 892,
-            lastActivity: '2 minutes ago',
-            createdAt: '2024-01-15',
-            qualityRating: 'High',
-            rateLimit: '1,000/hour',
-            messagesUsed: '247/1,000'
-        },
-        {
-            id: 2,
-            phoneNumber: '+44 20 7946 0958',
-            displayName: 'UK Sales',
-            status: 'active',
-            health: 'warning',
-            businessName: 'TechCorp UK',
-            country: 'United Kingdom',
-            messagesCount: 892,
-            contactsCount: 654,
-            lastActivity: '15 minutes ago',
-            createdAt: '2024-01-18',
-            qualityRating: 'Medium',
-            rateLimit: '500/hour',
-            messagesUsed: '123/500'
-        },
-        {
-            id: 3,
-            phoneNumber: '+49 30 12345678',
-            displayName: 'Germany Support',
-            status: 'pending',
-            health: 'warning',
-            businessName: 'TechCorp DE',
-            country: 'Germany',
-            messagesCount: 234,
-            contactsCount: 321,
-            lastActivity: '1 hour ago',
-            createdAt: '2024-01-20',
-            qualityRating: 'High',
-            rateLimit: '750/hour',
-            messagesUsed: '45/750'
-        },
-        {
-            id: 4,
-            phoneNumber: '+33 1 42 86 83 26',
-            displayName: 'France Marketing',
-            status: 'inactive',
-            health: 'error',
-            businessName: 'TechCorp FR',
-            country: 'France',
-            messagesCount: 156,
-            contactsCount: 198,
-            lastActivity: '2 days ago',
-            createdAt: '2024-01-12',
-            qualityRating: 'Low',
-            rateLimit: '250/hour',
-            messagesUsed: '12/250'
-        }
-    ];
+    const numbers = [];
     const getStatusColor = (status) => {
         switch (status) {
             case 'active': return 'text-green-600 bg-green-100';

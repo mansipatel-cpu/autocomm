@@ -1,9 +1,35 @@
 import { PhoneNumber } from './model.js';
 import { Agent } from '../agents/model.js';
+import { IncomingConnection } from '../incoming-connections/model.js';
 import { AppError } from '../../common/errors/app-error.js';
 
 export class PhoneNumberService {
   static async listNumbers(clientId, query = {}) {
+    // Auto-sync numbers provisioned in Incoming Connections for this client
+    try {
+      if (clientId) {
+        const incoming = await IncomingConnection.find({ clientId }).lean();
+        for (const conn of incoming) {
+          if (conn.phoneNumber && String(conn.phoneNumber).trim()) {
+            const rawPhone = String(conn.phoneNumber).trim();
+            const existing = await PhoneNumber.findOne({ clientId, phoneNumber: rawPhone });
+            if (!existing) {
+              await PhoneNumber.create({
+                clientId,
+                phoneNumber: rawPhone,
+                friendlyName: conn.name || 'Incoming Trunk Line',
+                status: conn.status === 'INACTIVE' ? 'AVAILABLE' : 'ACTIVE',
+                assignedAgentId: conn.agentId || null,
+                assignedAgentName: conn.agentName || 'Unassigned',
+              });
+            }
+          }
+        }
+      }
+    } catch (err) {
+      // Non-blocking sync
+    }
+
     const filter = { clientId };
     if (query.status && query.status !== 'all') {
       filter.status = query.status;

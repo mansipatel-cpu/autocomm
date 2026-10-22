@@ -303,7 +303,7 @@ export const PhoneNumbersPage = () => {
           >
             <option value="all">Client: All</option>
             {clients.map((c) => (
-              <option key={c._id} value={c._id}>
+              <option key={c.id || c._id} value={c.id || c._id}>
                 {c.companyName}
               </option>
             ))}
@@ -531,7 +531,7 @@ export const PhoneNumbersPage = () => {
                 >
                   <option value="">Leave Unassigned (Available in Pool)</option>
                   {clients.map((c) => (
-                    <option key={c._id} value={c._id}>
+                    <option key={c.id || c._id} value={c.id || c._id}>
                       {c.companyName} ({c.clientCode})
                     </option>
                   ))}
@@ -582,7 +582,7 @@ export const PhoneNumbersPage = () => {
                 >
                   <option value="">Unassign (Return to Available Pool)</option>
                   {clients.map((c) => (
-                    <option key={c._id} value={c._id}>
+                    <option key={c.id || c._id} value={c.id || c._id}>
                       {c.companyName} ({c.clientCode})
                     </option>
                   ))}

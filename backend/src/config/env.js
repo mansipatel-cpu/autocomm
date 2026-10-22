@@ -48,11 +48,14 @@ export const env = {
   ENCRYPTION_KEY: process.env.ENCRYPTION_KEY || '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
 
   SMTP: {
-    HOST: process.env.SMTP_HOST || 'smtp.mailtrap.io',
-    PORT: parseInt(process.env.SMTP_PORT || '2525', 10),
-    USER: process.env.SMTP_USER || '',
-    PASS: process.env.SMTP_PASS || '',
-    FROM: process.env.EMAIL_FROM || process.env.SMTP_USER || 'no-reply@autocomm.io',
+    HOST: process.env.SMTP_HOST || 'mail.caperminttechnologies.com',
+    PORT: parseInt(process.env.SMTP_PORT || '465', 10),
+    USER: (process.env.SMTP_USER || 'quizbox.ai@caperminttechnologies.com').trim(),
+    PASS: (() => {
+      const p = (process.env.SMTP_PASS || 'Capermint!@#123').trim().replace(/^["']|["']$/g, '');
+      return p === 'Capermint!@' || (p.startsWith('Capermint!@') && !p.includes('#123')) ? 'Capermint!@#123' : p;
+    })(),
+    FROM: process.env.EMAIL_FROM || process.env.SMTP_USER || 'quizbox.ai@caperminttechnologies.com',
     FROM_NAME: process.env.EMAIL_FROM_NAME || 'AutoComm Operations',
   },
 

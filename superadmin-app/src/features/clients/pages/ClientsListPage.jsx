@@ -255,7 +255,7 @@ export const ClientsListPage = () => {
             className="px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-slate-300 focus:outline-none focus:border-indigo-500"
           >
             <option value="all">Credits: All</option>
-            <option value="normal">Normal (> 500)</option>
+            <option value="normal">Normal (&gt; 500)</option>
             <option value="low">Low (1 - 500)</option>
             <option value="zero">Out of Credits (0)</option>
           </select>

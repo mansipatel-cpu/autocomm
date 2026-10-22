@@ -5,6 +5,23 @@ import { AppError } from '../../common/errors/app-error.js';
 import { successResponse, createdResponse } from '../../common/utils/response.util.js';
 import { ensureSchemaAlignment } from '../../config/postgres.js';
 
+const resolveClient = async (clientId) => {
+  if (!clientId || clientId === 'none' || clientId === '') return null;
+  const str = String(clientId).trim();
+  if (/^\d+$/.test(str)) {
+    const byId = await Client.findById(Number(str));
+    if (byId) return byId;
+  }
+  const matchCode = str.match(/CLI-\d+/i);
+  if (matchCode) {
+    const byCode = await Client.findOne({ clientCode: matchCode[0].toUpperCase() });
+    if (byCode) return byCode;
+  }
+  const byName = await Client.findOne({ companyName: str });
+  if (byName) return byName;
+  return null;
+};
+
 export class SuperAdminPhoneController {
   static async list(req, res, next) {
     try {
@@ -93,9 +110,9 @@ export class SuperAdminPhoneController {
       let initialStatus = 'AVAILABLE';
 
       if (clientId && clientId !== 'none') {
-        const client = await Client.findById(clientId);
+        const client = await resolveClient(clientId);
         if (!client) throw AppError.notFound('Assigned client company not found');
-        clientRef = client._id;
+        clientRef = client.id || client._id;
         initialStatus = 'ACTIVE';
       }
 
@@ -185,10 +202,10 @@ export class SuperAdminPhoneController {
       }
 
       // Assigning to client: Verify single-tenant exclusivity
-      const targetClient = await Client.findById(clientId);
+      const targetClient = await resolveClient(clientId);
       if (!targetClient) throw AppError.notFound('Target client not found');
 
-      number.clientId = targetClient._id;
+      number.clientId = targetClient.id || targetClient._id;
       number.status = 'ACTIVE';
       await number.save();
 

@@ -18,85 +18,7 @@ import React, { useState } from "react";
 import { Webhook, Plus, Search, Filter, MoreVertical, Play, Pause, Edit, Copy, Settings, Trash2, CheckCircle, XCircle, Clock, Activity, Globe, Shield, AlertTriangle, Download, Upload, } from "lucide-react";
 const Webhooks = () => {
     const [searchTerm, setSearchTerm] = useState("");
-    const [selectedWebhooks, setSelectedWebhooks] = useState([]);
-    const [filterStatus, setFilterStatus] = useState("all");
-    const webhooks = [
-        {
-            id: "1",
-            name: "Message Received",
-            url: "https://api.example.com/webhooks/messages",
-            event: "message.received",
-            status: "active",
-            lastTriggered: "2 minutes ago",
-            successRate: 98.5,
-            totalCalls: 15420,
-            failedCalls: 23,
-            avgResponseTime: "145ms",
-            retryCount: 3,
-            timeout: 30,
-            secret: "••••••••••••••••",
-        },
-        {
-            id: "2",
-            name: "Message Status Update",
-            url: "https://api.example.com/webhooks/status",
-            event: "message.status",
-            status: "active",
-            lastTriggered: "5 minutes ago",
-            successRate: 99.2,
-            totalCalls: 8930,
-            failedCalls: 7,
-            avgResponseTime: "98ms",
-            retryCount: 3,
-            timeout: 30,
-            secret: "••••••••••••••••",
-        },
-        {
-            id: "3",
-            name: "Contact Updated",
-            url: "https://api.example.com/webhooks/contacts",
-            event: "contact.updated",
-            status: "paused",
-            lastTriggered: "1 hour ago",
-            successRate: 97.8,
-            totalCalls: 2340,
-            failedCalls: 12,
-            avgResponseTime: "203ms",
-            retryCount: 5,
-            timeout: 45,
-            secret: "••••••••••••••••",
-        },
-        {
-            id: "4",
-            name: "Campaign Completed",
-            url: "https://api.example.com/webhooks/campaigns",
-            event: "campaign.completed",
-            status: "error",
-            lastTriggered: "3 hours ago",
-            successRate: 85.2,
-            totalCalls: 567,
-            failedCalls: 84,
-            avgResponseTime: "1.2s",
-            retryCount: 3,
-            timeout: 60,
-            secret: "••••••••••••••••",
-        },
-        {
-            id: "5",
-            name: "Lead Generated",
-            url: "https://api.example.com/webhooks/leads",
-            event: "lead.created",
-            status: "active",
-            lastTriggered: "15 minutes ago",
-            successRate: 99.8,
-            totalCalls: 4521,
-            failedCalls: 1,
-            avgResponseTime: "67ms",
-            retryCount: 2,
-            timeout: 20,
-            secret: "••••••••••••••••",
-        },
-    ];
+    const webhooks = [];
     const filteredWebhooks = webhooks.filter((webhook) => {
         const matchesSearch = webhook.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             webhook.event.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -156,13 +78,13 @@ const Webhooks = () => {
         },
         {
             label: "Total Calls Today",
-            value: "31.8K",
+            value: "0",
             icon: Activity,
             color: "text-purple-600",
         },
         {
             label: "Avg Success Rate",
-            value: "96.1%",
+            value: "0%",
             icon: Shield,
             color: "text-emerald-600",
         },
@@ -403,53 +325,7 @@ const Webhooks = () => {
             </h3>
           </div>
           <div className="p-4">
-            <div className="space-y-4">
-              {[
-            {
-                time: "2 minutes ago",
-                event: "Message Received webhook triggered",
-                status: "success",
-                webhook: "Message Received",
-            },
-            {
-                time: "5 minutes ago",
-                event: "Message Status Update webhook triggered",
-                status: "success",
-                webhook: "Message Status Update",
-            },
-            {
-                time: "12 minutes ago",
-                event: "Lead Generated webhook triggered",
-                status: "success",
-                webhook: "Lead Generated",
-            },
-            {
-                time: "18 minutes ago",
-                event: "Campaign Completed webhook failed",
-                status: "error",
-                webhook: "Campaign Completed",
-            },
-            {
-                time: "25 minutes ago",
-                event: "Contact Updated webhook triggered",
-                status: "success",
-                webhook: "Contact Updated",
-            },
-        ].map((activity, index) => (<div key={index} className="flex items-center justify-between py-2">
-                  <div className="flex items-center">
-                    {activity.status === "success" ? (<CheckCircle className="w-4 h-4 text-green-500 mr-3"/>) : (<AlertTriangle className="w-4 h-4 text-red-500 mr-3"/>)}
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">
-                        {activity.event}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {activity.webhook}
-                      </p>
-                    </div>
-                  </div>
-                  <span className="text-xs text-gray-500">{activity.time}</span>
-                </div>))}
-            </div>
+            <p className="text-sm text-gray-500 text-center py-4">No recent webhook activity</p>
           </div>
         </div>
       </div>

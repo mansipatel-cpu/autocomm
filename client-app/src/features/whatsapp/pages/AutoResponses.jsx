@@ -20,92 +20,12 @@ const AutoResponses = () => {
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedFilter, setSelectedFilter] = useState("all");
     const [openDropdown, setOpenDropdown] = useState(null);
-    const autoResponses = [
-        {
-            id: 1,
-            name: "Welcome Message",
-            trigger: "hi, hello, hey",
-            type: "greeting",
-            status: "active",
-            responses: 1247,
-            engagement: 89,
-            lastUsed: "2 minutes ago",
-            message: "Hi there! 👋 Welcome to our WhatsApp support. How can I help you today?",
-        },
-        {
-            id: 2,
-            name: "Business Hours",
-            trigger: "hours, timing, open",
-            type: "info",
-            status: "active",
-            responses: 892,
-            engagement: 76,
-            lastUsed: "15 minutes ago",
-            message: "Our business hours are Monday-Friday 9AM-6PM EST. We'll respond to your message during business hours!",
-        },
-        {
-            id: 3,
-            name: "Pricing Inquiry",
-            trigger: "price, cost, pricing",
-            type: "sales",
-            status: "paused",
-            responses: 634,
-            engagement: 92,
-            lastUsed: "1 hour ago",
-            message: "Thanks for your interest in our pricing! Let me connect you with our sales team for detailed information.",
-        },
-        {
-            id: 4,
-            name: "Support Request",
-            trigger: "help, support, issue",
-            type: "support",
-            status: "active",
-            responses: 1456,
-            engagement: 84,
-            lastUsed: "5 minutes ago",
-            message: "I understand you need support. Please describe your issue and I'll route you to the right team member.",
-        },
-        {
-            id: 5,
-            name: "Product Demo",
-            trigger: "demo, trial, test",
-            type: "sales",
-            status: "active",
-            responses: 423,
-            engagement: 88,
-            lastUsed: "30 minutes ago",
-            message: "Interested in a demo? Great! Click here to schedule a personalized product demonstration: [DEMO_LINK]",
-        },
-    ];
+    const autoResponses = [];
     const stats = [
-        {
-            label: "Total Responses",
-            value: "4,652",
-            change: "+12%",
-            icon: MessageSquare,
-            color: "text-blue-600",
-        },
-        {
-            label: "Active Rules",
-            value: "24",
-            change: "+3",
-            icon: Bot,
-            color: "text-green-600",
-        },
-        {
-            label: "Avg Response Time",
-            value: "0.3s",
-            change: "-0.1s",
-            icon: Zap,
-            color: "text-yellow-600",
-        },
-        {
-            label: "Engagement Rate",
-            value: "87%",
-            change: "+5%",
-            icon: Target,
-            color: "text-purple-600",
-        },
+        { label: "Total Responses", value: "0", change: "0%", icon: MessageSquare, color: "text-blue-600" },
+        { label: "Active Rules", value: "0", change: "0", icon: Bot, color: "text-green-600" },
+        { label: "Avg Response Time", value: "0.0s", change: "0.0s", icon: Zap, color: "text-yellow-600" },
+        { label: "Engagement Rate", value: "0%", change: "0%", icon: Target, color: "text-purple-600" },
     ];
     const filteredResponses = autoResponses.filter((response) => {
         const matchesSearch = response.name.toLowerCase().includes(searchTerm.toLowerCase()) ||

@@ -269,7 +269,7 @@ export default function VoicePreviewButton({ voiceId, voiceName, voiceSettings =
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label>{t('voicePreview.similarityBoost')}</Label>
-                  <span className="text-sm text-muted-foreground">{Math.round(localSettings.similarity_boost * 100)}%</span>
+                  <span className="text-sm text-muted-foreground">{Math.round(Number(localSettings?.similarity_boost ?? 0.75) * 100)}%</span>
                 </div>
                 <Slider value={[localSettings.similarity_boost]} onValueChange={([v]) => updateSetting("similarity_boost", v)} min={0} max={1} step={0.05} data-testid="slider-similarity"/>
                 <p className="text-xs text-muted-foreground">{t('voicePreview.similarityHelp')}</p>
@@ -278,7 +278,7 @@ export default function VoicePreviewButton({ voiceId, voiceName, voiceSettings =
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label>{t('voicePreview.speed')}</Label>
-                  <span className="text-sm text-muted-foreground">{localSettings.speed.toFixed(2)}x</span>
+                  <span className="text-sm text-muted-foreground">{Number(localSettings?.speed ?? 1.0).toFixed(2)}x</span>
                 </div>
                 <Slider value={[localSettings.speed]} onValueChange={([v]) => updateSetting("speed", v)} min={0.7} max={1.2} step={0.05} data-testid="slider-speed"/>
                 <p className="text-xs text-muted-foreground">{t('voicePreview.speedHelp')}</p>
