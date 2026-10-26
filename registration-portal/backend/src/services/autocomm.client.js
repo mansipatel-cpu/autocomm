@@ -120,6 +120,25 @@ export class AutoCommClient {
   }
 
   /**
+   * Delete Contact from AutoComm
+   */
+  static async deleteContact({ contactId, phone }) {
+    const target = contactId || phone;
+    if (!target) return { success: true };
+    logger.info(`Deleting contact ${target} from AutoComm`);
+    try {
+      const endpoint = `${autocommEndpoints.contacts}/${encodeURIComponent(target)}`;
+      const result = await this.request(endpoint, {
+        method: 'DELETE',
+      });
+      return { success: true, data: result };
+    } catch (err) {
+      logger.warn(`Notice deleting contact ${target} from AutoComm: ${err.message}`);
+      return { success: false, error: err.message };
+    }
+  }
+
+  /**
    * Step 3b: Add contact to group AUTOCOMM_GROUP_ID
    */
   static async addContactToGroup({ contactId, groupId }) {

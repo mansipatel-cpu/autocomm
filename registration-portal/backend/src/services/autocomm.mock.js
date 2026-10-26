@@ -33,6 +33,11 @@ export class AutoCommMockService {
     };
   }
 
+  static async deleteContact({ contactId, phone }) {
+    logger.info(`[MOCK AutoComm] Contact ${contactId || phone} deleted`);
+    return { success: true };
+  }
+
   /**
    * Step 3b: Add contact to group
    */

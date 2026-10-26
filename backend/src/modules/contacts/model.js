@@ -34,6 +34,10 @@ const contactSchema = new mongoose.Schema(
       enum: ['whatsapp', 'voice'],
       default: ['whatsapp', 'voice'],
     },
+    channelId: {
+      type: Number,
+      default: 4,
+    },
     status: {
       type: String,
       enum: ['Active', 'Pending', 'Inactive'],

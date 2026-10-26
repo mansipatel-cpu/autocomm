@@ -99,4 +99,65 @@ router.post('/registrations/:id/retry', requireAdmin, async (req, res) => {
   }
 });
 
+import { AutoCommService } from '../services/autocomm.service.js';
+
+/**
+ * DELETE /api/admin/registrations/:id
+ * Removes a specific registration from both portal and AutoComm
+ */
+router.delete('/registrations/:id', requireAdmin, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const reg = RegistrationRepository.findById(id);
+    if (reg) {
+      await AutoCommService.deleteContact({
+        contactId: reg.autocomm_contact_id,
+        phone: reg.phone,
+      }).catch((e) => logger.warn(`AutoComm delete notice for #${id}: ${e.message}`));
+    }
+    RegistrationRepository.delete(id);
+    logger.info(`Deleted registration #${id} from portal and AutoComm`);
+    return res.json({
+      success: true,
+      message: `Registration #${id} deleted successfully.`,
+    });
+  } catch (error) {
+    logger.error(`Failed to delete registration #${req.params.id}: ${error.message}`);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to delete registration.',
+    });
+  }
+});
+
+/**
+ * DELETE /api/admin/registrations
+ * Clears all registrations from the portal database and AutoComm
+ */
+router.delete('/registrations', requireAdmin, async (_req, res) => {
+  try {
+    const all = RegistrationRepository.list({ limit: 1000 }).rows;
+    await Promise.allSettled(
+      all.map((r) =>
+        AutoCommService.deleteContact({
+          contactId: r.autocomm_contact_id,
+          phone: r.phone,
+        })
+      )
+    );
+    RegistrationRepository.deleteAll();
+    logger.info('Purged all registrations from portal and AutoComm');
+    return res.json({
+      success: true,
+      message: 'All registrations cleared successfully.',
+    });
+  } catch (error) {
+    logger.error(`Failed to clear registrations: ${error.message}`);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to clear registrations.',
+    });
+  }
+});
+
 export default router;

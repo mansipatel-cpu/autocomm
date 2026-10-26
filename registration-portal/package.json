@@ -4,6 +4,7 @@
   "description": "Standalone Registration Portal integrating with AutoComm REST API",
   "private": true,
   "scripts": {
+    "dev": "npx --yes concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
     "dev:backend": "npm --prefix backend run dev",
     "dev:frontend": "npm --prefix frontend run dev",
     "start:backend": "npm --prefix backend start",

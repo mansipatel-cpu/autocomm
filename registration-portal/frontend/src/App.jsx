@@ -7,12 +7,19 @@ import { AdminDashboard } from './components/AdminDashboard.jsx';
 import { api } from './services/api.js';
 
 export default function App() {
-  const [activePage, setActivePage] = useState('register');
+  const [activePage, setActivePage] = useState(() => {
+    return sessionStorage.getItem('autocomm_active_page') || 'register';
+  });
   const [registeredData, setRegisteredData] = useState(null);
   const [adminToken, setAdminToken] = useState(() => {
     return sessionStorage.getItem('autocomm_admin_token') || '';
   });
   const [isMockMode, setIsMockMode] = useState(true);
+
+  const handlePageChange = (page) => {
+    setActivePage(page);
+    sessionStorage.setItem('autocomm_active_page', page);
+  };
 
   useEffect(() => {
     async function checkBackend() {
@@ -38,12 +45,7 @@ export default function App() {
     <div className="app-container">
       <Navbar
         activePage={activePage}
-        setActivePage={(page) => {
-          setActivePage(page);
-          if (page === 'register') {
-            // Keep existing form state or reset if needed
-          }
-        }}
+        setActivePage={handlePageChange}
         isMockMode={isMockMode}
       />
 
@@ -54,7 +56,7 @@ export default function App() {
               <SuccessCard
                 data={registeredData}
                 onReset={() => setRegisteredData(null)}
-                onGoToAdmin={() => setActivePage('admin')}
+                onGoToAdmin={() => handlePageChange('admin')}
               />
             ) : (
               <RegistrationForm

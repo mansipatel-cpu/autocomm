@@ -64,6 +64,7 @@ export class ContactService {
 
   static async createContact({
     clientId,
+    channelId,
     name,
     email,
     phoneNumber,
@@ -84,11 +85,17 @@ export class ContactService {
 
     const existing = await Contact.findOne({ clientId, phoneNumber: cleanPhone });
     if (existing) {
-      throw AppError.conflict(`Contact with phone number '${cleanPhone}' already exists.`);
+      existing.name = name || existing.name;
+      if (email) existing.email = email;
+      if (channelId) existing.channelId = channelId;
+      existing.status = 'Active';
+      await existing.save().catch(() => null);
+      return existing;
     }
 
     const contact = await Contact.create({
       clientId,
+      channelId: channelId || 4,
       name,
       email: email || '',
       phoneNumber: cleanPhone,
@@ -121,15 +128,25 @@ export class ContactService {
   }
 
   static async deleteContact(clientId, contactId) {
-    const contact = await Contact.findOneAndDelete({ _id: contactId, clientId });
+    let contact = null;
+    if (contactId && !String(contactId).startsWith('+')) {
+      contact = await Contact.findOneAndDelete({ _id: contactId, clientId }).catch(() => null);
+    }
+    if (!contact) {
+      contact = await Contact.findOneAndDelete({ phoneNumber: contactId, clientId }).catch(() => null);
+    }
+    if (!contact) {
+      const cleanPhone = String(contactId).replace(/\s+/g, '');
+      contact = await Contact.findOneAndDelete({ phoneNumber: cleanPhone, clientId }).catch(() => null);
+    }
     if (!contact) throw AppError.notFound('Contact not found');
 
     // Clean up group memberships
-    const members = await GroupMember.find({ contactId, clientId });
+    const members = await GroupMember.find({ contactId: contact._id, clientId }).catch(() => []);
     for (const m of members) {
-      await Group.findByIdAndUpdate(m.groupId, { $inc: { contactCount: -1 } });
+      await Group.findByIdAndUpdate(m.groupId, { $inc: { contactCount: -1 } }).catch(() => null);
     }
-    await GroupMember.deleteMany({ contactId, clientId });
+    await GroupMember.deleteMany({ contactId: contact._id, clientId }).catch(() => null);
 
     return { success: true, message: 'Contact deleted' };
   }

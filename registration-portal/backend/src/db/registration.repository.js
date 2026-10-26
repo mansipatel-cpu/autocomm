@@ -113,6 +113,16 @@ export class RegistrationRepository {
     return { total, completed, failed, inProgress };
   }
 
+  static delete(id) {
+    const stmt = db.prepare('DELETE FROM registrations WHERE id = ?');
+    return stmt.run(id);
+  }
+
+  static deleteAll() {
+    const stmt = db.prepare('DELETE FROM registrations');
+    return stmt.run();
+  }
+
   static logWebhook({ registrationId, eventType, rawPayload, status }) {
     const stmt = db.prepare(`
       INSERT INTO webhook_logs (registration_id, event_type, raw_payload, status, created_at)

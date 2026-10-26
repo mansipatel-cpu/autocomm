@@ -16,7 +16,13 @@ router.get('/deduplicated', async (req, res, next) => {
       page: 1,
       limit: 1000,
     });
-    const contacts = result?.contacts || (Array.isArray(result) ? result : []);
+    const contacts = (result?.contacts || (Array.isArray(result) ? result : [])).map((c) => ({
+      ...c,
+      id: c.id || c._id,
+      phone: c.phone || c.phoneNumber || c.whatsappNumber || '',
+      name: c.name || '',
+      names: [{ firstName: c.name || '', lastName: '' }],
+    }));
     res.json(contacts);
   } catch (error) {
     next(error);

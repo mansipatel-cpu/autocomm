@@ -27,21 +27,29 @@ export default defineConfig({
         port: 5173,
         proxy: {
             "/api/v1": {
-                target: "http://localhost:5000",
+                target: "http://127.0.0.1:5000",
                 changeOrigin: true,
             },
             "/api": {
-                target: "http://localhost:5000",
+                target: "http://127.0.0.1:5000",
                 changeOrigin: true,
                 rewrite: (path) => path.replace(/^\/api(?!\/v1)/, "/api/v1"),
             },
             "/uploads": {
-                target: "http://localhost:5000",
+                target: "http://127.0.0.1:5000",
                 changeOrigin: true,
             },
             "/socket.io": {
-                target: "http://localhost:5000",
+                target: "http://127.0.0.1:5000",
                 ws: true,
+                changeOrigin: true,
+                configure: (proxy) => {
+                    proxy.on("error", (err) => {
+                        // Suppress expected transient disconnect errors on reload
+                        if (err.code === "ECONNRESET" || err.code === "ECONNREFUSED") return;
+                        console.error("[vite socket proxy error]:", err);
+                    });
+                },
             },
         },
     },

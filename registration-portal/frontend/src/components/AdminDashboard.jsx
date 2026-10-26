@@ -14,6 +14,7 @@ import {
   Sparkles,
   Send,
   X,
+  Trash2,
 } from 'lucide-react';
 
 export function AdminDashboard({ token, onLogout }) {
@@ -22,6 +23,7 @@ export function AdminDashboard({ token, onLogout }) {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [retryingId, setRetryingId] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
   const [selectedError, setSelectedError] = useState(null);
 
   // Webhook Simulator State
@@ -69,6 +71,44 @@ export function AdminDashboard({ token, onLogout }) {
       alert(`Retry request failed: ${err.message}`);
     } finally {
       setRetryingId(null);
+    }
+  };
+
+  const handleDelete = async (id, phone) => {
+    if (!window.confirm(`Are you sure you want to delete registration for ${phone}?`)) {
+      return;
+    }
+    setDeletingId(id);
+    try {
+      const res = await api.deleteRegistration(token, id);
+      if (res.success) {
+        await fetchData();
+      } else {
+        alert(`Delete failed: ${res.error}`);
+      }
+    } catch (err) {
+      alert(`Delete request failed: ${err.message}`);
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const handleClearAll = async () => {
+    if (!window.confirm('Are you sure you want to delete ALL registrations from the status list?')) {
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await api.clearAllRegistrations(token);
+      if (res.success) {
+        await fetchData();
+      } else {
+        alert(`Clear all failed: ${res.error}`);
+      }
+    } catch (err) {
+      alert(`Clear all failed: ${err.message}`);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -235,8 +275,32 @@ export function AdminDashboard({ token, onLogout }) {
             />
           </div>
 
-          <div style={{ fontSize: '0.85rem', color: '#64748b' }}>
-            Showing <strong>{registrations.length}</strong> records
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ fontSize: '0.85rem', color: '#64748b' }}>
+              Showing <strong>{registrations.length}</strong> records
+            </div>
+            {registrations.length > 0 && (
+              <button
+                type="button"
+                onClick={handleClearAll}
+                style={{
+                  background: '#fef2f2',
+                  border: '1px solid #fecaca',
+                  color: '#b91c1c',
+                  padding: '4px 10px',
+                  borderRadius: '6px',
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                }}
+                title="Delete all records from the status list"
+              >
+                <Trash2 size={12} /> Clear All
+              </button>
+            )}
           </div>
         </div>
 
@@ -310,16 +374,41 @@ export function AdminDashboard({ token, onLogout }) {
                     )}
                   </td>
                   <td style={{ textAlign: 'right' }}>
-                    <button
-                      type="button"
-                      className="btn-retry"
-                      disabled={retryingId === row.id}
-                      onClick={() => handleRetry(row.id)}
-                      title="Retry pipeline steps for this user"
-                    >
-                      <RotateCw size={13} className={retryingId === row.id ? 'spinner' : ''} />
-                      {retryingId === row.id ? 'Retrying...' : 'Retry'}
-                    </button>
+                    <div style={{ display: 'inline-flex', gap: '6px', alignItems: 'center' }}>
+                      <button
+                        type="button"
+                        className="btn-retry"
+                        disabled={retryingId === row.id}
+                        onClick={() => handleRetry(row.id)}
+                        title="Retry pipeline steps for this user"
+                      >
+                        <RotateCw size={13} className={retryingId === row.id ? 'spinner' : ''} />
+                        {retryingId === row.id ? 'Retrying...' : 'Retry'}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={deletingId === row.id}
+                        onClick={() => handleDelete(row.id, row.phone)}
+                        style={{
+                          background: '#fff1f2',
+                          border: '1px solid #fecdd3',
+                          color: '#e11d48',
+                          padding: '6px 10px',
+                          borderRadius: '8px',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          fontSize: '0.8rem',
+                          fontWeight: 600,
+                          transition: 'all 0.2s ease',
+                        }}
+                        title={`Delete ${row.phone}`}
+                      >
+                        <Trash2 size={13} />
+                        {deletingId === row.id ? '...' : 'Delete'}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

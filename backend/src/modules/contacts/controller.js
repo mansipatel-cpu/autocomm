@@ -31,8 +31,10 @@ export class ContactController {
 
   static async create(req, res, next) {
     try {
+      const channelId = req.headers['x-channel-id'] || req.body.channelId || 4;
       const contact = await ContactService.createContact({
         clientId: req.clientId,
+        channelId: parseInt(channelId, 10) || 4,
         ...req.body,
       });
       return createdResponse(res, contact, 'Contact created successfully');

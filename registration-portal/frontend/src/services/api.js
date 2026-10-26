@@ -58,6 +58,28 @@ export const api = {
     return res.json();
   },
 
+  // Delete Single Registration
+  async deleteRegistration(token, id) {
+    const res = await fetch(`${API_BASE}/admin/registrations/${id}`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    return res.json();
+  },
+
+  // Clear All Registrations
+  async clearAllRegistrations(token) {
+    const res = await fetch(`${API_BASE}/admin/registrations`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    return res.json();
+  },
+
   // Trigger Webhook Event (for testing)
   async triggerWebhook(secret, payload) {
     const res = await fetch(`${API_BASE}/webhooks/autocomm`, {

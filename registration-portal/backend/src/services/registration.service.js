@@ -27,9 +27,13 @@ export class RegistrationService {
       throw new Error(`Phone number must follow E.164 international format (e.g. +14155552671). Received: ${cleanPhone}`);
     }
 
-    // Duplicate check by phone number
+    // Duplicate check by phone number (auto-retry if previously failed)
     const existing = RegistrationRepository.findByPhone(cleanPhone);
     if (existing) {
+      if (existing.status === 'failed' || existing.contact_status !== 'contact_created') {
+        logger.info(`Re-attempting previously failed registration ID #${existing.id} for phone ${cleanPhone}`);
+        return this.executeAutoCommPipeline(existing.id);
+      }
       throw new Error(`A registration with phone number '${cleanPhone}' already exists.`);
     }
 

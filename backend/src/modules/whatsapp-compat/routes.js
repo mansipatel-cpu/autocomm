@@ -356,7 +356,14 @@ router.delete('/automations/:id', (_req, res) => {
 router.get(['/contacts-all', '/contacts', '/contacts/all-for-add'], async (req, res) => {
   try {
     const { ContactService } = await import('../contacts/service.js');
-    const clientId = req.clientId || req.user?.clientId || req.user?.id;
+    let clientId = req.clientId || req.user?.clientId || req.user?.id;
+    if (!clientId && req.headers.authorization?.startsWith('Bearer ')) {
+      try {
+        const { verifyAccessToken } = await import('../../common/utils/jwt.util.js');
+        const decoded = verifyAccessToken(req.headers.authorization.split(' ')[1]);
+        clientId = decoded?.clientId || decoded?.id;
+      } catch {}
+    }
     const result = await ContactService.listContacts({
       clientId,
       page: 1,
@@ -367,6 +374,8 @@ router.get(['/contacts-all', '/contacts', '/contacts/all-for-add'], async (req, 
       phone: c.phoneNumber || c.phone,
       id: c.id || c._id,
       waId: c.phoneNumber || c.phone,
+      name: c.name,
+      names: [{ firstName: c.name, lastName: '' }],
     }));
     res.json(contacts);
   } catch (_error) {

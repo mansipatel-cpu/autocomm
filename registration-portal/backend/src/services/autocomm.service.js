@@ -21,6 +21,11 @@ export class AutoCommService {
     return client.createContact(contactData);
   }
 
+  static async deleteContact(data) {
+    const client = this.getBackendClient();
+    return client.deleteContact(data);
+  }
+
   static async addContactToGroup(groupData) {
     const client = this.getBackendClient();
     return client.addContactToGroup(groupData);
