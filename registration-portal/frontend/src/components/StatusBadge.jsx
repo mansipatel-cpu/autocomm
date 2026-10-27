@@ -23,6 +23,12 @@ export function StatusBadge({ status, type }) {
       label = norm === 'message_queued' ? 'Message Queued' : 'Sent';
       break;
 
+    case 'campaign_managed':
+      badgeClass = 'badge-neutral';
+      Icon = Clock;
+      label = 'AutoComm Campaign';
+      break;
+
     case 'initiated':
     case 'call_queued':
       badgeClass = 'badge-warning';

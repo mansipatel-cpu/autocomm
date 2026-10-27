@@ -108,7 +108,21 @@ export class RegistrationService {
       }
     }
 
-    // Step 3c: Trigger WhatsApp message (approved template or WhatsApp campaign)
+    // Step 3c & 3d: Direct Outreach
+    // If direct dispatch is disabled, contacts are registered for campaigns initiated within AutoComm (client-app)
+    if (!config.enableDirectDispatch) {
+      logger.info(`Direct dispatch disabled. Contact #${contactId} registered in AutoComm for campaigns run via AutoComm / client-app.`);
+      reg = RegistrationRepository.update(registrationId, {
+        status: 'completed',
+        message_status: ['pending', 'failed'].includes(reg.message_status) ? 'campaign_managed' : reg.message_status,
+        call_status: ['pending', 'failed'].includes(reg.call_status) ? 'campaign_managed' : reg.call_status,
+        last_error: null,
+        last_failed_step: null,
+      });
+      return reg;
+    }
+
+    // Step 3c: Trigger WhatsApp message (direct dispatch enabled)
     const canSkipMessage = ['message_queued', 'sent', 'delivered'].includes(reg.message_status);
     if (!canSkipMessage) {
       try {
@@ -133,11 +147,10 @@ export class RegistrationService {
           last_error: `WhatsApp trigger failed: ${err.message}`,
           last_failed_step: 'message',
         });
-        // Stop or continue to call? Prompt allows retrying failed steps. Let's try calling too or save error.
       }
     }
 
-    // Step 3d: Trigger Auto Calling campaign
+    // Step 3d: Trigger Auto Calling campaign (direct dispatch enabled)
     const canSkipCall = ['call_queued', 'initiated', 'completed'].includes(reg.call_status);
     if (!canSkipCall) {
       try {

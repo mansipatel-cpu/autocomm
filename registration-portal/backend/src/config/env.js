@@ -12,6 +12,7 @@ export const config = {
   port: parseInt(process.env.PORT || '3000', 10),
   nodeEnv: process.env.NODE_ENV || 'development',
   isMock: process.env.MOCK_AUTOCOMM === 'true' || process.env.MOCK_AUTOCOMM === '1',
+  enableDirectDispatch: process.env.ENABLE_DIRECT_DISPATCH === 'true',
 
   autocomm: {
     baseUrl: (process.env.AUTOCOMM_BASE_URL || 'https://YOUR_AUTOCOMM_URL/api').replace(/\/+$/, ''),

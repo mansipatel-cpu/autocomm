@@ -12,7 +12,7 @@ export function SuccessCard({ data, onReset, onGoToAdmin }) {
           Registration Confirmed!
         </h2>
         <p style={{ fontSize: '1.05rem', color: '#475569', marginTop: '10px', lineHeight: 1.5, fontWeight: 500 }}>
-          You&apos;re registered. You will receive a WhatsApp message and a call shortly.
+          You&apos;re registered! Your contact details have been synced to AutoComm.
         </p>
       </div>
 
@@ -45,7 +45,7 @@ export function SuccessCard({ data, onReset, onGoToAdmin }) {
               <MessageSquare size={16} /> WhatsApp
             </div>
             <p style={{ fontSize: '0.75rem', color: '#047857', marginTop: '4px' }}>
-              Template dispatched to your phone
+              Added to AutoComm Campaign List
             </p>
           </div>
 
@@ -54,7 +54,7 @@ export function SuccessCard({ data, onReset, onGoToAdmin }) {
               <PhoneCall size={16} /> AI Voice Call
             </div>
             <p style={{ fontSize: '0.75rem', color: '#1d4ed8', marginTop: '4px' }}>
-              Auto Calling campaign queued
+              Ready for AutoComm Calling Campaign
             </p>
           </div>
         </div>

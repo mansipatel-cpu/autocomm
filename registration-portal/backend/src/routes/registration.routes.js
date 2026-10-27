@@ -33,7 +33,7 @@ router.post('/register', async (req, res) => {
         messageStatus: result.message_status,
         callStatus: result.call_status,
         createdAt: result.created_at,
-        message: "You're registered. You will receive a WhatsApp message and a call shortly.",
+        message: "You're registered successfully! Your contact details have been synced with AutoComm.",
       },
     });
   } catch (error) {

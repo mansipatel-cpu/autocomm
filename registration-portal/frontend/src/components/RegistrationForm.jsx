@@ -87,7 +87,7 @@ export function RegistrationForm({ onSuccess }) {
         </div>
         <h1 className="form-title" style={{ marginTop: '6px' }}>User Registration Portal</h1>
         <p className="form-subtitle">
-          Register your contact details to automatically trigger a personalized WhatsApp message and autonomous AI voice call.
+          Register your contact details to connect with AutoComm test channels and campaign groups.
         </p>
       </div>
 
