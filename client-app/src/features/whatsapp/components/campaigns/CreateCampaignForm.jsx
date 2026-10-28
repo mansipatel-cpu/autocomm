@@ -90,6 +90,8 @@ export function CreateCampaignForm({ onSubmit, selectedTemplate, setSelectedTemp
             name: values.name,
             description: values.description ?? "",
             variableMapping: buildVariableMapping(),
+            scheduledTime,
+            autoRetry,
         });
     };
     const handleSelectTemplate = (template, variables, mediaId, headerType, buttonParameters, expirationTimeMs, carouselCardMediaIds) => {
@@ -176,17 +178,21 @@ export function CreateCampaignForm({ onSubmit, selectedTemplate, setSelectedTemp
               <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">
                 Preview
               </p>
-              {selectedTemplate.headerType === "text" && selectedTemplate.headerText && (<div className="font-semibold text-sm">{selectedTemplate.headerText}</div>)}
+              {(selectedTemplate.headerText || selectedTemplate.header) && (<div className="font-semibold text-sm">
+                  {typeof selectedTemplate.headerText === "string" ? selectedTemplate.headerText : (typeof selectedTemplate.header === "string" ? selectedTemplate.header : selectedTemplate.header?.text || "")}
+                </div>)}
               <div className="whitespace-pre-wrap text-sm text-slate-800">
-                {selectedTemplate.body}
+                {typeof selectedTemplate.body === "string" ? selectedTemplate.body : (selectedTemplate.body?.text || selectedTemplate.bodyText || "")}
               </div>
-              {selectedTemplate.footerText && (<div className="text-xs text-slate-500">{selectedTemplate.footerText}</div>)}
+              {(selectedTemplate.footerText || selectedTemplate.footer) && (<div className="text-xs text-slate-500">
+                  {typeof selectedTemplate.footerText === "string" ? selectedTemplate.footerText : (typeof selectedTemplate.footer === "string" ? selectedTemplate.footer : selectedTemplate.footer?.text || "")}
+                </div>)}
               {templateConfig && (<div className="mt-2 pt-2 border-t border-slate-200 space-y-1">
-                  {templateConfig.variables.length > 0 && (<p className="text-xs text-slate-500">
+                  {Array.isArray(templateConfig.variables) && templateConfig.variables.length > 0 && (<p className="text-xs text-slate-500">
                       {templateConfig.variables.length} variable(s) configured
                     </p>)}
                   {templateConfig.mediaId && (<p className="text-xs text-emerald-600">Header media uploaded</p>)}
-                  {templateConfig.buttonParameters &&
+                  {Array.isArray(templateConfig.buttonParameters) &&
                     templateConfig.buttonParameters.length > 0 && (<p className="text-xs text-slate-500">
                         {templateConfig.buttonParameters.length} button parameter(s) set
                       </p>)}

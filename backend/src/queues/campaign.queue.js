@@ -35,7 +35,12 @@ try {
 export const enqueueCampaignDispatch = async (campaignId, clientId) => {
   if (campaignDispatchQueue) {
     try {
-      return await campaignDispatchQueue.add('dispatch', { campaignId, clientId });
+      const addPromise = campaignDispatchQueue.add('dispatch', { campaignId, clientId });
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('BullMQ queue add timed out')), 1000)
+      );
+      await Promise.race([addPromise, timeoutPromise]);
+      return;
     } catch (err) {
       logger.warn(`Could not enqueue to Redis BullMQ: ${err.message}. Processing directly in background.`);
     }
@@ -49,7 +54,7 @@ export const enqueueCampaignDispatch = async (campaignId, clientId) => {
     } catch (e) {
       logger.error('Background dispatch fallback failed:', e);
     }
-  }, 500);
+  }, 100);
 };
 
 export const enqueueCampaignRetry = async (recipientId, campaignId) => {

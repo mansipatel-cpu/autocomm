@@ -140,9 +140,10 @@ export const createApp = () => {
   // 3. Client Dashboard
   app.use(['/api/dashboard', `${env.API_PREFIX}/dashboard`], clientDashboardRoutes);
 
-  // 4. Campaigns (Supports /campaigns and /whatsapp/campaigns with both prefixes)
+  // 4. Campaigns (Supports /campaigns, /whatsapp/campaigns, and /whatsapp/analytics/campaigns)
   app.use(['/api/campaigns', `${env.API_PREFIX}/campaigns`], campaignRoutes);
   app.use(['/api/whatsapp/campaigns', `${env.API_PREFIX}/whatsapp/campaigns`], campaignRoutes);
+  app.use(['/api/whatsapp/analytics/campaigns', `${env.API_PREFIX}/whatsapp/analytics/campaigns`], campaignRoutes);
 
   // 5. Contacts & Groups
   app.use(['/api/contacts', `${env.API_PREFIX}/contacts`], contactRoutes);

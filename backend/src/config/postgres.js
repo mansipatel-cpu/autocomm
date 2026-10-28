@@ -159,7 +159,93 @@ export const ensureSchemaAlignment = async () => {
       `ALTER TABLE agents ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'::jsonb;`,
       `ALTER TABLE templates ADD COLUMN IF NOT EXISTS voice_tone VARCHAR(128) DEFAULT 'Professional';`,
       `ALTER TABLE templates ADD COLUMN IF NOT EXISTS personality VARCHAR(128) DEFAULT 'Support Specialist';`,
-      `ALTER TABLE templates ADD COLUMN IF NOT EXISTS synthesis_language VARCHAR(64) DEFAULT 'English (US) - Neutral';`
+      `ALTER TABLE templates ADD COLUMN IF NOT EXISTS synthesis_language VARCHAR(64) DEFAULT 'English (US) - Neutral';`,
+      `ALTER TABLE templates ADD COLUMN IF NOT EXISTS channel_id INT;`,
+      `ALTER TABLE templates ADD COLUMN IF NOT EXISTS type VARCHAR(64) DEFAULT 'whatsapp';`,
+      `ALTER TABLE templates ADD COLUMN IF NOT EXISTS body_text TEXT;`,
+      `ALTER TABLE templates ADD COLUMN IF NOT EXISTS header_text TEXT DEFAULT '';`,
+      `ALTER TABLE templates ADD COLUMN IF NOT EXISTS footer_text TEXT DEFAULT '';`,
+      `ALTER TABLE templates ADD COLUMN IF NOT EXISTS sample_parameters JSONB DEFAULT '{}'::jsonb;`,
+      `ALTER TABLE templates ADD COLUMN IF NOT EXISTS meta_status VARCHAR(64) DEFAULT 'APPROVED';`,
+      `ALTER TABLE templates ADD COLUMN IF NOT EXISTS first_message TEXT DEFAULT '';`,
+      `ALTER TABLE templates ADD COLUMN IF NOT EXISTS prompt TEXT DEFAULT '';`,
+      `ALTER TABLE templates ADD COLUMN IF NOT EXISTS description TEXT DEFAULT '';`,
+      `ALTER TABLE templates ALTER COLUMN body DROP NOT NULL;`,
+      `UPDATE templates SET status = 'APPROVED' WHERE status = 'Active' OR status IS NULL;`,
+      `CREATE TABLE IF NOT EXISTS campaigns (
+          id SERIAL PRIMARY KEY,
+          client_id INT NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+          name VARCHAR(255) NOT NULL,
+          campaign_code VARCHAR(64) NOT NULL,
+          channel_type VARCHAR(64) NOT NULL DEFAULT 'whatsapp',
+          campaign_type VARCHAR(64) NOT NULL DEFAULT 'Marketing',
+          description TEXT DEFAULT '',
+          status VARCHAR(32) NOT NULL DEFAULT 'DRAFT',
+          template_id INT REFERENCES templates(id) ON DELETE SET NULL,
+          template_name VARCHAR(255) DEFAULT '',
+          language VARCHAR(32) DEFAULT 'en_US',
+          enable_auto_retry BOOLEAN NOT NULL DEFAULT FALSE,
+          agent_id INT,
+          agent_name VARCHAR(255) DEFAULT '',
+          phone_number VARCHAR(64) DEFAULT '',
+          visual_flow_name VARCHAR(255) DEFAULT '',
+          custom_script TEXT DEFAULT '',
+          campaign_goal VARCHAR(255) DEFAULT '',
+          call_scheduling JSONB NOT NULL DEFAULT '{"enabled": false}'::jsonb,
+          target_group_ids JSONB DEFAULT '[]'::jsonb,
+          audience_segment_name VARCHAR(255) DEFAULT 'All Targeted Contacts',
+          scheduled_at TIMESTAMPTZ,
+          started_at TIMESTAMPTZ,
+          completed_at TIMESTAMPTZ,
+          metrics JSONB NOT NULL DEFAULT '{"totalRecipients": 0, "sent": 0, "delivered": 0, "read": 0, "answered": 0, "failed": 0, "progressPercent": 0}'::jsonb,
+          is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+          deleted_at TIMESTAMPTZ,
+          deleted_by INT,
+          deleted_by_user_name VARCHAR(255) DEFAULT 'Admin User',
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );`,
+      `CREATE INDEX IF NOT EXISTS idx_campaigns_client_id ON campaigns(client_id);`,
+      `CREATE INDEX IF NOT EXISTS idx_campaigns_status ON campaigns(status);`,
+      `CREATE INDEX IF NOT EXISTS idx_campaigns_channel_type ON campaigns(channel_type);`,
+      `ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS metrics JSONB DEFAULT '{"totalRecipients": 0, "sent": 0, "delivered": 0, "read": 0, "answered": 0, "failed": 0, "progressPercent": 0}'::jsonb;`,
+      `ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS template_id INT;`,
+      `ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS template_name VARCHAR(255) DEFAULT '';`,
+      `ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS enable_auto_retry BOOLEAN DEFAULT FALSE;`,
+      `ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS channel_type VARCHAR(64) DEFAULT 'whatsapp';`,
+      `ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN DEFAULT FALSE;`,
+      `CREATE TABLE IF NOT EXISTS campaign_recipients (
+          id SERIAL PRIMARY KEY,
+          client_id INT NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+          campaign_id INT NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
+          name VARCHAR(255) DEFAULT 'Recipient',
+          phone_number VARCHAR(64) NOT NULL,
+          email VARCHAR(255) DEFAULT '',
+          language VARCHAR(32) DEFAULT 'en',
+          city VARCHAR(128) DEFAULT '',
+          status VARCHAR(32) NOT NULL DEFAULT 'pending',
+          error_details TEXT DEFAULT '',
+          custom_variables JSONB DEFAULT '{}'::jsonb,
+          dispatched_at TIMESTAMPTZ,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );`,
+      `CREATE INDEX IF NOT EXISTS idx_recipients_campaign_id ON campaign_recipients(campaign_id);`,
+      `CREATE INDEX IF NOT EXISTS idx_recipients_status ON campaign_recipients(status);`,
+      `CREATE TABLE IF NOT EXISTS channels (
+          id SERIAL PRIMARY KEY,
+          client_id INT REFERENCES clients(id) ON DELETE CASCADE,
+          channel_name VARCHAR(255) NOT NULL DEFAULT 'test_capermint',
+          phone_number_id VARCHAR(128),
+          waba_id VARCHAR(128),
+          access_token TEXT,
+          status VARCHAR(32) NOT NULL DEFAULT 'CONNECTED',
+          webhook_verify_token VARCHAR(255),
+          health_status VARCHAR(32) DEFAULT 'healthy',
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );`,
+      `CREATE INDEX IF NOT EXISTS idx_channels_client_id ON channels(client_id);`
     ];
 
     for (const sql of statements) {
@@ -169,6 +255,36 @@ export const ensureSchemaAlignment = async () => {
         // Silently skip non-fatal column or index conflict
       }
     }
+
+    // Seed/sync active test_capermint channel
+    try {
+      const channelToken = 'EAAdO7qEObzsBRo4RPaAycf2FZCv9AHcY14I9qp9rPd07jqZCntBt7oOGWkWwURhBOTJRGZBWL5kZB6KIgXhisHHPLOrocgZBxIapI8swmz6ve6yLyuhHDAOH4h756ta1n6p9IvuE9l0L3gEcdm27a84mxX8tHutMRSUQ0Pu5sLTkZCvZA0xoYDKindIo45I9INaugZDZD';
+      const existing = await p.query(`SELECT id FROM channels WHERE phone_number_id = '1051965797989920' LIMIT 1`);
+      if (existing.rows.length === 0) {
+        await p.query(
+          `INSERT INTO channels (client_id, channel_name, phone_number_id, waba_id, access_token, status)
+           VALUES ((SELECT id FROM clients LIMIT 1), 'test_capermint', '1051965797989920', '877170465308578', $1, 'CONNECTED')`,
+          [channelToken]
+        );
+      } else {
+        await p.query(
+          `UPDATE channels
+           SET access_token = $1, status = 'CONNECTED', waba_id = '877170465308578', channel_name = 'test_capermint'
+           WHERE phone_number_id = '1051965797989920'`,
+          [channelToken]
+        );
+      }
+    } catch (chErr) {
+      logger.debug(`Channel sync notice: ${chErr.message}`);
+    }
+
+    try {
+      const lastRec = await p.query(`SELECT id, campaign_id, phone_number, status, error_details FROM campaign_recipients ORDER BY id DESC LIMIT 1`);
+      if (lastRec.rows.length > 0) {
+        logger.info(`🔍 [LAST RECIPIENT DISPATCH LOG]: ${JSON.stringify(lastRec.rows[0])}`);
+      }
+    } catch { }
+
     logger.info('✅ PostgreSQL schema verified and columns aligned.');
   } catch (err) {
     logger.debug(`Schema alignment notice: ${err.message}`);

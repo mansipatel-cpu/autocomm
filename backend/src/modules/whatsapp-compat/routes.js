@@ -558,4 +558,56 @@ router.delete('/contacts/:id', async (req, res) => {
   res.status(204).send();
 });
 
+// ----------------- Analytics Messages & Export -----------------
+router.get('/analytics/messages', (_req, res) => {
+  const days = parseInt(_req.query.days || '30', 10);
+  const dailyStats = [];
+  const now = new Date();
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(now.getTime() - i * 86400000);
+    dailyStats.push({
+      date: d.toISOString().split('T')[0],
+      sent: 0,
+      delivered: 0,
+      read: 0,
+      failed: 0,
+    });
+  }
+  res.json({
+    success: true,
+    overall: {
+      totalOutbound: 0,
+      totalInbound: 0,
+      totalMessages: 0,
+      totalDelivered: 0,
+      totalRead: 0,
+      totalReplied: 0,
+      totalFailed: 0,
+    },
+    dailyStats,
+  });
+});
+
+router.get('/analytics/export', async (req, res) => {
+  try {
+    const format = req.query.format || 'csv';
+    const campaignId = req.query.campaignId;
+    let rows = 'Recipient Name,Phone,Status,Error\n';
+    if (campaignId) {
+      try {
+        const { CampaignRecipient } = await import('../campaigns/model.js');
+        const recipients = await CampaignRecipient.find({ campaignId }).limit(500).lean();
+        for (const r of recipients || []) {
+          rows += `"${r.name || 'Recipient'}","${r.phoneNumber || r.phone || ''}","${r.status || 'pending'}","${r.errorMessage || ''}"\n`;
+        }
+      } catch {}
+    }
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="campaign-report.${format === 'excel' ? 'xlsx' : 'csv'}"`);
+    return res.send(rows);
+  } catch {
+    return res.status(500).send('Export failed');
+  }
+});
+
 export default router;

@@ -176,7 +176,7 @@ export function TemplatesTable({ templates, onViewTemplate, onEditTemplate, onDu
 
                 <div className="space-y-1.5">
                   {template.header && (<p className="text-sm font-medium text-gray-800 truncate">
-                      {template.header}
+                      {typeof template.header === "object" ? template.header?.text : template.header}
                     </p>)}
                   <p className="text-sm text-gray-600 line-clamp-3">
                     {template.body}

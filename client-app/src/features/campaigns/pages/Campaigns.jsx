@@ -165,11 +165,16 @@ export default function Campaigns() {
         },
     });
     const voiceCampaigns = useMemo(() => {
-        if (Array.isArray(rawVoiceCampaigns)) return rawVoiceCampaigns;
-        if (Array.isArray(rawVoiceCampaigns?.data?.campaigns)) return rawVoiceCampaigns.data.campaigns;
-        if (Array.isArray(rawVoiceCampaigns?.campaigns)) return rawVoiceCampaigns.campaigns;
-        if (Array.isArray(rawVoiceCampaigns?.data)) return rawVoiceCampaigns.data;
-        return [];
+        let list = [];
+        if (Array.isArray(rawVoiceCampaigns)) list = rawVoiceCampaigns;
+        else if (Array.isArray(rawVoiceCampaigns?.data?.campaigns)) list = rawVoiceCampaigns.data.campaigns;
+        else if (Array.isArray(rawVoiceCampaigns?.campaigns)) list = rawVoiceCampaigns.campaigns;
+        else if (Array.isArray(rawVoiceCampaigns?.data)) list = rawVoiceCampaigns.data;
+        // Strictly exclude WhatsApp campaigns from the Auto Calling tab
+        return list.filter((c) => {
+            const ch = String(c?.channelType || c?.channel_type || c?.channel || "").toLowerCase();
+            return ch !== "whatsapp";
+        });
     }, [rawVoiceCampaigns]);
 
     const { data: rawDeletedCampaigns = [] } = useQuery({
@@ -219,7 +224,11 @@ export default function Campaigns() {
                 if (!response.ok)
                     return [];
                 const result = await response.json();
-                return Array.isArray(result) ? result : result?.data || [];
+                if (Array.isArray(result)) return result;
+                if (Array.isArray(result?.data)) return result.data;
+                if (Array.isArray(result?.data?.campaigns)) return result.data.campaigns;
+                if (Array.isArray(result?.campaigns)) return result.campaigns;
+                return [];
             }
             catch {
                 return [];
@@ -329,23 +338,31 @@ export default function Campaigns() {
             });
         },
     });
-    const waRows = useMemo(() => (Array.isArray(waCampaigns) ? waCampaigns : []).map((campaign) => ({
+    const waList = useMemo(() => {
+        if (Array.isArray(waCampaigns)) return waCampaigns;
+        if (Array.isArray(waCampaigns?.data)) return waCampaigns.data;
+        if (Array.isArray(waCampaigns?.data?.campaigns)) return waCampaigns.data.campaigns;
+        if (Array.isArray(waCampaigns?.campaigns)) return waCampaigns.campaigns;
+        return [];
+    }, [waCampaigns]);
+
+    const waRows = useMemo(() => waList.map((campaign) => ({
         id: campaign?.id || campaign?._id,
         name: campaign?.name || "Untitled campaign",
         tag: campaign?.templateName || "WhatsApp",
-        audience: Number(campaign?.recipientCount || campaign?.totalRecipients || 0),
+        audience: Number(campaign?.recipientCount || campaign?.metrics?.totalRecipients || campaign?.totalRecipients || 0),
         template: campaign?.templateName || "—",
         schedule: parseDate(campaign?.scheduledAt)
             ? format(parseDate(campaign?.scheduledAt), "MMM d, yyyy")
             : "Immediate",
         status: formatStatus(campaign?.status || "draft"),
-        sent: Number(campaign?.sentCount || 0),
-        delivered: Number(campaign?.deliveredCount || 0),
-        failed: Number(campaign?.failedCount || 0),
+        sent: Number(campaign?.sentCount || campaign?.metrics?.sent || 0),
+        delivered: Number(campaign?.deliveredCount || campaign?.metrics?.delivered || 0),
+        failed: Number(campaign?.failedCount || campaign?.metrics?.failed || 0),
         createdAt: parseDate(campaign?.createdAt),
         createdBy: campaign?.createdBy || "All",
         channel: "whatsapp",
-    })), [waCampaigns]);
+    })), [waList]);
     const voiceRows = useMemo(() => (Array.isArray(voiceCampaigns) ? voiceCampaigns : []).map((campaign) => ({
         id: campaign?.id || campaign?._id,
         name: campaign?.name || "Untitled Campaign",
@@ -474,7 +491,7 @@ export default function Campaigns() {
         ? Boolean(tableSearch) || deletedTypeFilter !== "all" || deletedDateFilter !== "all"
         : Boolean(tableSearch) || statusFilter !== "all" || dateFilter !== "all" || createdByFilter !== "all" || templateFilter !== "all";
     const activeRuns = (Array.isArray(voiceCampaigns) ? voiceCampaigns : []).filter((c) => c?.status === "in_progress").length +
-        (Array.isArray(waCampaigns) ? waCampaigns : []).filter((c) => ["active", "sending"].includes(c?.status || "")).length;
+        waList.filter((c) => ["active", "sending"].includes(c?.status || "")).length;
     const startItem = totalItems === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1;
     const endItem = Math.min(currentPage * itemsPerPage, totalItems);
     const isLoading = tab === "whatsapp" ? waLoading : tab === "calling" ? voiceLoading : false;

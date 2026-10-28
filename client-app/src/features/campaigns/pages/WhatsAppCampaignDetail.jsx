@@ -53,6 +53,7 @@ export default function WhatsAppCampaignDetail() {
     const { toast } = useToast();
     const { setPageMeta } = useAppHeader();
     const [exportLoading, setExportLoading] = useState(false);
+    const [dispatchLoading, setDispatchLoading] = useState(false);
     const [statusFilter, setStatusFilter] = useState("all");
     const [page, setPage] = useState(1);
     const [rowsPerPage, setRowsPerPage] = useState(5);
@@ -63,10 +64,16 @@ export default function WhatsAppCampaignDetail() {
         });
         return () => setPageMeta(null);
     }, [setPageMeta]);
-    const { data, isLoading, error } = useQuery({
+    const { data, isLoading, error, refetch } = useQuery({
         queryKey: ["whatsapp-campaign-details", id],
         queryFn: async () => {
-            const response = await authFetch(`/api/whatsapp/analytics/campaigns/${id}`);
+            let response = await authFetch(`/api/whatsapp/analytics/campaigns/${id}`);
+            if (!response.ok) {
+                response = await authFetch(`/api/whatsapp/campaigns/${id}`);
+            }
+            if (!response.ok) {
+                response = await authFetch(`/api/campaigns/${id}`);
+            }
             if (!response.ok) {
                 throw new Error(`Failed to load campaign (${response.status})`);
             }
@@ -75,11 +82,16 @@ export default function WhatsAppCampaignDetail() {
         enabled: !!id,
         refetchInterval: 8000,
     });
-    const campaign = (data?.campaign || {});
-    const recipients = (Array.isArray(data?.recipients) ? data.recipients : []);
+    const rawCampaign = data?.campaign || data?.data?.campaign || (data?.name ? data : {}) || {};
+    const campaign = { ...rawCampaign, id: rawCampaign.id || rawCampaign._id || id };
+    const recipients = Array.isArray(data?.recipients)
+        ? data.recipients
+        : Array.isArray(data?.data?.recipients)
+            ? data.data.recipients
+            : [];
     const sentCount = safeNumber(campaign.sentCount);
     const deliveredCount = safeNumber(campaign.deliveredCount);
-    const recipientCount = safeNumber(campaign.recipientCount);
+    const recipientCount = safeNumber(campaign.recipientCount || recipients.length);
     const readCount = safeNumber(campaign.readCount);
     const failedCount = safeNumber(campaign.failedCount);
     const deliveryRate = sentCount > 0 ? Math.round((deliveredCount / sentCount) * 100) : 0;
@@ -156,6 +168,37 @@ export default function WhatsAppCampaignDetail() {
         }
         finally {
             setExportLoading(false);
+        }
+    };
+    const handleSendLive = async () => {
+        if (!id) return;
+        setDispatchLoading(true);
+        try {
+            let res = await authFetch(`/api/whatsapp/campaigns/${id}/dispatch`, { method: "POST" });
+            if (!res.ok) {
+                res = await authFetch(`/api/whatsapp/analytics/campaigns/${id}/dispatch`, { method: "POST" });
+            }
+            if (res.ok) {
+                toast({
+                    title: "Live dispatch initiated",
+                    description: "Sending message via Meta WhatsApp Cloud API...",
+                });
+                setTimeout(() => refetch(), 2500);
+            } else {
+                toast({
+                    title: "Dispatch notice",
+                    description: "Could not trigger dispatch. Please check connection.",
+                    variant: "destructive",
+                });
+            }
+        } catch {
+            toast({
+                title: "Error",
+                description: "Failed to dispatch campaign.",
+                variant: "destructive",
+            });
+        } finally {
+            setDispatchLoading(false);
         }
     };
     if (isLoading) {

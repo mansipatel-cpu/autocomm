@@ -66,6 +66,16 @@ export const formatRow = (row, model = null) => {
     }
   }
 
+  if (doc.body !== undefined && doc.bodyText === undefined) {
+    doc.bodyText = doc.body;
+  }
+  if (doc.footer !== undefined && doc.footerText === undefined) {
+    doc.footerText = doc.footer;
+  }
+  if (doc.header !== undefined && doc.headerText === undefined) {
+    doc.headerText = typeof doc.header === 'object' ? doc.header?.text || '' : doc.header;
+  }
+
   if (row.id !== undefined) {
     doc.id = row.id;
 
@@ -220,7 +230,73 @@ export class PgModel {
     return this.findOne({ id });
   }
 
+  async insertMany(docs) {
+    if (!Array.isArray(docs) || docs.length === 0) {
+      return [];
+    }
+    try {
+      const validCols = await getValidColumns(this.tableName);
+      const colSet = new Set();
+      for (const doc of docs) {
+        if (!doc || typeof doc !== 'object') continue;
+        for (const [key, val] of Object.entries(doc)) {
+          if (key === '_id' || val === undefined) continue;
+          const col = toSnakeCase(key);
+          if (!validCols || validCols.has(col)) {
+            colSet.add(col);
+          }
+        }
+      }
+      const cols = Array.from(colSet);
+      if (cols.length === 0) {
+        return [];
+      }
+
+      const values = [];
+      const rowPlaceholders = [];
+      let idx = 1;
+
+      for (const doc of docs) {
+        const itemPlaceholders = [];
+        for (const col of cols) {
+          const camelKey = toCamelCase(col);
+          let val = doc[camelKey] !== undefined ? doc[camelKey] : doc[col];
+          if (val === undefined) val = null;
+
+          const formattedVal =
+            val !== null && typeof val === 'object' && !(val instanceof Date)
+              ? JSON.stringify(val)
+              : val;
+
+          values.push(formattedVal);
+          itemPlaceholders.push(`$${idx++}`);
+        }
+        rowPlaceholders.push(`(${itemPlaceholders.join(', ')})`);
+      }
+
+      const sql = `
+        INSERT INTO ${this.tableName} (${cols.join(', ')})
+        VALUES ${rowPlaceholders.join(', ')}
+        RETURNING *;
+      `;
+
+      const result = await query(sql, values);
+      return result.rows.map((r) => formatRow(r, this));
+    } catch (err) {
+      logger.error(`[PgModel ${this.name} insertMany error, falling back to sequential]:`, err.message);
+      const results = [];
+      for (const doc of docs) {
+        const r = await this.create(doc);
+        results.push(r);
+      }
+      return results;
+    }
+  }
+
   async create(data) {
+    if (Array.isArray(data)) {
+      return this.insertMany(data);
+    }
     try {
       const keys = [];
       const values = [];
@@ -525,8 +601,8 @@ export const Types = {
 
 export const connection = {
   readyState: 1,
-  on: () => {},
-  once: () => {},
+  on: () => { },
+  once: () => { },
 };
 
 export const mongoose = {

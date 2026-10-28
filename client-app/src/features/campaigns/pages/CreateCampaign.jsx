@@ -216,12 +216,13 @@ export default function CreateCampaign() {
                 templateId: selectedTemplate.id,
                 templateName: selectedTemplate.name || "Template",
                 templateLanguage: selectedTemplate.language || "en",
-                status: scheduledTime ? "scheduled" : "active",
-                scheduledAt: scheduledTime ? new Date(scheduledTime).toISOString() : null,
+                status: (formData.scheduledTime || scheduledTime) ? "scheduled" : "active",
+                scheduledAt: (formData.scheduledTime || scheduledTime) ? new Date(formData.scheduledTime || scheduledTime).toISOString() : null,
+                scheduleAt: (formData.scheduledTime || scheduledTime) ? new Date(formData.scheduledTime || scheduledTime).toISOString() : null,
                 contactGroups: selectedContacts,
                 recipientCount: selectedContacts.length,
                 variableMapping: formData.variableMapping || {},
-                autoRetry,
+                autoRetry: formData.autoRetry ?? autoRetry,
             });
             return response.json();
         },
@@ -245,9 +246,10 @@ export default function CreateCampaign() {
     const extractTemplateVariables = (template) => {
         const variables = [];
         const regex = /\{\{(\d+)\}\}/g;
-        if (template?.body) {
+        const bodyStr = typeof template?.body === "string" ? template.body : (template?.body?.text || template?.bodyText || "");
+        if (bodyStr) {
             let match;
-            while ((match = regex.exec(template.body)) !== null) {
+            while ((match = regex.exec(bodyStr)) !== null) {
                 variables.push(match[1]);
             }
         }

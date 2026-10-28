@@ -5,6 +5,7 @@ import { env } from './config/env.js';
 import { logger } from './config/logger.js';
 import { connectPostgres, disconnectPostgres } from './config/postgres.js';
 import { setIO } from './socket.js';
+import { startCampaignScheduler } from './workers/campaign.scheduler.js';
 
 // AutoComm Server - Client Users Management Updated
 const startServer = async () => {
@@ -55,6 +56,9 @@ const startServer = async () => {
     logger.info(`👉 Client API: http://localhost:${env.PORT}${env.API_PREFIX}`);
     logger.info(`👉 Super Admin API: http://localhost:${env.PORT}${env.API_PREFIX}/superadmin`);
     logger.info(`👉 Health check: http://localhost:${env.PORT}/health`);
+
+    // Start background campaign scheduler for automatic scheduled delivery
+    startCampaignScheduler();
   });
 
   const shutdown = async (signal) => {

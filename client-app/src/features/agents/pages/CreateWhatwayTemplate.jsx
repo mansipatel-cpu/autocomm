@@ -192,11 +192,16 @@ export default function CreateWhatwayTemplate() {
             formData.append("category", category);
             formData.append("language", language);
             formData.append("body", body.trim());
+            formData.append("bodyText", body.trim());
             formData.append("channelId", activeChannel.id);
-            if (footer.trim())
+            if (footer.trim()) {
                 formData.append("footer", footer.trim());
-            if (headerFormat === "text" && headerTitle.trim())
+                formData.append("footerText", footer.trim());
+            }
+            if (headerFormat === "text" && headerTitle.trim()) {
                 formData.append("header", headerTitle.trim());
+                formData.append("headerText", headerTitle.trim());
+            }
             if (headerFormat !== "none" && headerFormat !== "text" && headerFile) {
                 formData.append("mediaFile", headerFile);
                 formData.append("mediaType", headerFormat);
@@ -204,7 +209,9 @@ export default function CreateWhatwayTemplate() {
             if (marketingType && marketingType !== "CUSTOM")
                 formData.append("marketingSubType", marketingType);
             if (bodyVars.length) {
-                formData.append("samples", JSON.stringify(bodyVars.map((n) => samples[n] || `Sample ${n}`)));
+                const sampleList = bodyVars.map((n) => samples[n] || `Sample ${n}`);
+                formData.append("samples", JSON.stringify(sampleList));
+                formData.append("sampleParameters", JSON.stringify(sampleList));
             }
             const payload = buttons
                 .filter((item) => item.text.trim())

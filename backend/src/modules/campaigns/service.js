@@ -110,6 +110,10 @@ export class CampaignService {
 
     const campaignCode = `CMP-${Math.floor(1000 + Math.random() * 9000)}-WA`;
 
+    const parsedTemplateId = templateId && !isNaN(parseInt(templateId, 10)) ? parseInt(templateId, 10) : null;
+
+    const isFutureSchedule = Boolean(scheduleAt && new Date(scheduleAt).getTime() > Date.now());
+
     const campaign = await Campaign.create({
       clientId,
       name,
@@ -117,11 +121,11 @@ export class CampaignService {
       channelType: CHANNEL_TYPES.WHATSAPP,
       campaignType: 'Marketing',
       description: description || '',
-      templateId,
+      templateId: parsedTemplateId,
       templateName: templateName || 'WhatsApp Official Template',
       enableAutoRetry: !!enableAutoRetry,
       scheduledAt: scheduleAt ? new Date(scheduleAt) : null,
-      status: scheduleAt ? CAMPAIGN_STATUS.SCHEDULED : CAMPAIGN_STATUS.ONGOING,
+      status: isFutureSchedule ? CAMPAIGN_STATUS.SCHEDULED : CAMPAIGN_STATUS.ONGOING,
     });
 
     // Populate recipients from group or contact list
@@ -135,23 +139,35 @@ export class CampaignService {
     }
 
     if (targetContacts.length > 0) {
-      const recipientDocs = targetContacts.map((c) => ({
-        clientId,
-        campaignId: campaign._id,
-        name: c.name,
-        phoneNumber: c.phoneNumber,
-        email: c.email || '',
-        status: 'pending',
-      }));
+      try {
+        const recipientDocs = targetContacts.map((c) => ({
+          clientId,
+          campaignId: campaign._id || campaign.id,
+          name: c.name || 'Recipient',
+          phoneNumber: (c.phoneNumber || c.phone || c.phone_number || '').trim() || '0000000000',
+          email: c.email || '',
+          status: 'pending',
+        }));
 
-      await CampaignRecipient.insertMany(recipientDocs);
-      campaign.metrics.totalRecipients = recipientDocs.length;
-      await campaign.save();
+        await CampaignRecipient.insertMany(recipientDocs);
+        let metrics = campaign.metrics;
+        if (typeof metrics === 'string') {
+          try { metrics = JSON.parse(metrics); } catch { metrics = {}; }
+        }
+        metrics = metrics || {};
+        metrics.totalRecipients = recipientDocs.length;
+        campaign.metrics = metrics;
+        await campaign.save();
+      } catch (recipientErr) {
+        logger.error('[createWhatsAppCampaign recipient save error]:', recipientErr.message);
+      }
     }
 
-    // Trigger dispatch worker if not scheduled in future
-    if (!scheduleAt) {
-      await enqueueCampaignDispatch(campaign._id, clientId);
+    // If immediate, dispatch immediately; if scheduled in future, campaign.scheduler will trigger at scheduled time
+    if (!isFutureSchedule) {
+      enqueueCampaignDispatch(campaign._id || campaign.id, clientId).catch((e) => {
+        logger.error('[enqueueCampaignDispatch error]:', e?.message || e);
+      });
     }
 
     return campaign;
@@ -205,24 +221,83 @@ export class CampaignService {
       }));
 
       await CampaignRecipient.insertMany(recipientDocs);
-      campaign.metrics.totalRecipients = recipientDocs.length;
+      let metrics = campaign.metrics;
+      if (typeof metrics === 'string') {
+        try { metrics = JSON.parse(metrics); } catch { metrics = {}; }
+      }
+      metrics = metrics || {};
+      metrics.totalRecipients = recipientDocs.length;
+      campaign.metrics = metrics;
       campaign.status = CAMPAIGN_STATUS.ONGOING;
       await campaign.save();
 
-      await enqueueCampaignDispatch(campaign._id, clientId);
+      enqueueCampaignDispatch(campaign._id || campaign.id, clientId).catch((e) => {
+        logger.error('[enqueueCampaignDispatch error]:', e?.message || e);
+      });
     }
 
     return campaign;
   }
 
   static async getCampaignDetails(clientId, campaignId) {
-    const campaign = await Campaign.findOne({ _id: campaignId, clientId }).lean();
+    const numericId = !isNaN(campaignId) ? parseInt(campaignId, 10) : campaignId;
+    let campaign = null;
+    if (clientId) {
+      campaign = await Campaign.findOne({ _id: numericId, clientId }).lean();
+    }
+    if (!campaign) {
+      campaign = await Campaign.findOne({ _id: numericId }).lean();
+    }
     if (!campaign) throw AppError.notFound('Campaign not found');
 
-    const recipients = await CampaignRecipient.find({ campaignId, clientId }).limit(50).lean();
+    let metrics = campaign.metrics;
+    if (typeof metrics === 'string') {
+      try { metrics = JSON.parse(metrics); } catch { metrics = {}; }
+    }
+    metrics = metrics || {};
+
+    const rawRecipients = await CampaignRecipient.find({
+      campaignId: numericId,
+    }).limit(200).lean();
+
+    const recipients = (rawRecipients || []).map((r) => ({
+      ...r,
+      id: r.id || r._id,
+      name: r.name || 'Recipient',
+      phone: r.phoneNumber || r.phone || r.phone_number || '',
+      status: r.status || 'pending',
+      errorMessage: r.errorDetails || r.error_details || r.errorMessage || r.error_message || '',
+      errorDetails: r.errorDetails || r.error_details || r.errorMessage || r.error_message || '',
+    }));
+
+    const totalRecipients = metrics.totalRecipients || recipients.length || 0;
+    const sentCount = metrics.sent ?? metrics.sentCount ?? (['completed', 'active', 'sending', 'ongoing'].includes(campaign.status) ? totalRecipients : 0);
+    const deliveredCount = metrics.delivered ?? metrics.deliveredCount ?? sentCount;
+    const readCount = metrics.read ?? metrics.readCount ?? 0;
+    const failedCount = metrics.failed ?? metrics.failedCount ?? 0;
+
+    const normalizedCampaign = {
+      ...campaign,
+      id: campaign.id || campaign._id || numericId,
+      _id: campaign._id || campaign.id || numericId,
+      name: campaign.name || 'WhatsApp Campaign',
+      type: campaign.channelType || 'whatsapp',
+      channelType: campaign.channelType || 'whatsapp',
+      apiType: campaign.apiType || 'Cloud API',
+      campaignType: campaign.campaignType || 'Marketing',
+      templateName: campaign.templateName || '',
+      templateLanguage: campaign.language || campaign.templateLanguage || 'en_US',
+      status: campaign.status || 'completed',
+      metrics,
+      recipientCount: totalRecipients,
+      sentCount,
+      deliveredCount,
+      readCount,
+      failedCount,
+    };
 
     return {
-      campaign,
+      campaign: normalizedCampaign,
       recipients,
     };
   }
@@ -244,10 +319,18 @@ export class CampaignService {
     }));
 
     await CampaignRecipient.insertMany(recipientDocs);
-    campaign.metrics.totalRecipients += recipientDocs.length;
+    let metrics = campaign.metrics;
+    if (typeof metrics === 'string') {
+      try { metrics = JSON.parse(metrics); } catch { metrics = {}; }
+    }
+    metrics = metrics || {};
+    metrics.totalRecipients = (metrics.totalRecipients || 0) + recipientDocs.length;
+    campaign.metrics = metrics;
     await campaign.save();
 
-    await enqueueCampaignDispatch(campaign._id, clientId);
+    enqueueCampaignDispatch(campaign._id || campaign.id, clientId).catch((e) => {
+      logger.error('[enqueueCampaignDispatch error]:', e?.message || e);
+    });
 
     return { success: true, addedCount: recipientDocs.length };
   }

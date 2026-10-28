@@ -65,11 +65,42 @@ export class TemplateService {
   }
 
   static async createWhatwayTemplate(clientId, data) {
-    const { name, category, language, headerFormat, headerText, bodyText, footerText, sampleParameters, buttons } = data;
+    const name = data.name;
+    const category = data.category;
+    const language = data.language || 'en_US';
+    const headerFormat = data.headerFormat || (data.headerText || data.header ? 'Text' : 'None');
+    const headerText = data.headerText || data.header || '';
+    const bodyText = data.bodyText || data.body || '';
+    const footerText = data.footerText || data.footer || '';
+
+    let sampleParameters = data.sampleParameters || data.samples || {};
+    if (typeof sampleParameters === 'string') {
+      try {
+        sampleParameters = JSON.parse(sampleParameters);
+      } catch {
+        sampleParameters = {};
+      }
+    }
+    if (Array.isArray(sampleParameters)) {
+      const map = {};
+      sampleParameters.forEach((val, idx) => {
+        map[String(idx + 1)] = val;
+      });
+      sampleParameters = map;
+    }
+
+    let buttons = data.buttons || [];
+    if (typeof buttons === 'string') {
+      try {
+        buttons = JSON.parse(buttons);
+      } catch {
+        buttons = [];
+      }
+    }
 
     // Validate Name: lowercase letters, numbers, and underscores only
     const nameRegex = /^[a-z0-9_]+$/;
-    if (!nameRegex.test(name)) {
+    if (!name || !nameRegex.test(name)) {
       throw AppError.badRequest('Template name must contain only lowercase letters, numbers, and underscores.');
     }
 
@@ -104,18 +135,23 @@ export class TemplateService {
 
     const template = await Template.create({
       clientId,
+      channelId: data.channelId ? parseInt(data.channelId, 10) : null,
       type: 'whatsapp',
       name,
       category,
       language: language || 'en_US',
       headerFormat: headerFormat || 'None',
       headerText: headerText || '',
+      header: typeof headerText === 'object' ? headerText : { format: headerFormat || 'None', text: headerText || '' },
+      body: bodyText,
       bodyText,
+      footer: footerText || '',
       footerText: footerText || '',
       sampleParameters: sampleParameters || {},
       buttons: buttons || [],
       metaStatus: META_TEMPLATE_STATUS.APPROVED, // Simulates instant or approved Meta response
-      status: 'Active',
+      metaTemplateId: data.metaTemplateId || '',
+      status: 'APPROVED',
     });
 
     return template;
@@ -147,6 +183,8 @@ export class TemplateService {
       description: description || '',
       firstMessage,
       prompt,
+      body: firstMessage || prompt || '',
+      bodyText: firstMessage || prompt || '',
       voiceTone: voiceTone || 'Professional',
       personality: personality || 'Support Specialist',
       status: 'Active',

@@ -25,6 +25,20 @@ router.post('/voice', CampaignController.createAutoCalling);
 router.get('/:id', CampaignController.getDetails);
 router.put('/:id', CampaignController.getDetails);
 router.post('/:id/contacts-csv', CampaignController.addContactsCsv);
+router.post('/:id/dispatch', async (req, res, next) => {
+  try {
+    const campaignId = !isNaN(req.params.id) ? parseInt(req.params.id, 10) : req.params.id;
+    try {
+      const { query } = await import('../../config/postgres.js');
+      await query(`UPDATE campaign_recipients SET status = 'pending' WHERE campaign_id = $1`, [campaignId]);
+    } catch {}
+    const { processCampaignDispatch } = await import('../../workers/campaign.worker.js');
+    processCampaignDispatch(campaignId, req.clientId || 1).catch(() => {});
+    return res.status(200).json({ success: true, message: 'Campaign live dispatch started' });
+  } catch (err) {
+    next(err);
+  }
+});
 router.delete('/:id', CampaignController.softDelete);
 router.post('/:id/restore', CampaignController.restore);
 

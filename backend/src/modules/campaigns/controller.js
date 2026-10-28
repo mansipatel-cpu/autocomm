@@ -4,16 +4,30 @@ import { successResponse, createdResponse } from '../../common/utils/response.ut
 export class CampaignController {
   static async list(req, res, next) {
     try {
-      const { channelType, status, search, page, limit } = req.query;
+      const isWhatsApp = req.originalUrl.includes('/whatsapp/');
+      const effectiveChannelType = req.query.channelType || (isWhatsApp ? 'whatsapp' : 'voice');
+      const { status, search, page, limit } = req.query;
+
       const result = await CampaignService.listCampaigns({
         clientId: req.clientId,
-        channelType,
+        channelType: effectiveChannelType === 'all' ? undefined : effectiveChannelType,
         status,
         search,
         page: parseInt(page || '1', 10),
-        limit: parseInt(limit || '10', 10),
+        limit: parseInt(limit || '50', 10),
       });
-      return successResponse(res, result, 'Campaigns retrieved');
+
+      return res.status(200).json({
+        success: true,
+        data: result.campaigns,
+        campaigns: result.campaigns,
+        pagination: {
+          page: result.page,
+          limit: result.limit,
+          total: result.total,
+          totalPages: result.totalPages,
+        },
+      });
     } catch (error) {
       next(error);
     }
@@ -48,8 +62,8 @@ export class CampaignController {
       const campaign = await CampaignService.createWhatsAppCampaign(
         req.clientId,
         req.body,
-        req.user.id,
-        req.user.name
+        req.user?.id || req.user?._id || 1,
+        req.user?.name || req.user?.username || req.user?.email || 'User'
       );
       return createdResponse(res, campaign, 'WhatsApp campaign created and dispatch queued');
     } catch (error) {
@@ -62,8 +76,8 @@ export class CampaignController {
       const campaign = await CampaignService.createAutoCallingCampaign(
         req.clientId,
         req.body,
-        req.user.id,
-        req.user.name
+        req.user?.id || req.user?._id || 1,
+        req.user?.name || req.user?.username || req.user?.email || 'User'
       );
       return createdResponse(res, campaign, 'Auto Calling campaign created successfully');
     } catch (error) {
@@ -74,7 +88,12 @@ export class CampaignController {
   static async getDetails(req, res, next) {
     try {
       const details = await CampaignService.getCampaignDetails(req.clientId, req.params.id);
-      return successResponse(res, details, 'Campaign details retrieved');
+      return res.status(200).json({
+        success: true,
+        data: details,
+        campaign: details.campaign,
+        recipients: details.recipients,
+      });
     } catch (error) {
       next(error);
     }

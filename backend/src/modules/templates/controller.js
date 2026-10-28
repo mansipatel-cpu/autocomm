@@ -64,11 +64,81 @@ export class TemplateController {
       });
 
       let items = result.templates || [];
-      if (items.length === 0) {
+      if (items.length === 0 && (!type || type === 'voice') && !req.originalUrl.includes('/whatsapp/')) {
         items = DEFAULT_PROMPT_TEMPLATES;
       }
 
-      return res.status(200).json(items);
+      const normalizedItems = items.map((t) => {
+        let headerStr = '';
+        let headerFormat = t.headerFormat || 'text';
+        if (typeof t.header === 'string') {
+          headerStr = t.header;
+        } else if (t.header && typeof t.header === 'object') {
+          headerStr = t.header.text || t.headerText || '';
+          headerFormat = t.header.format || headerFormat;
+        } else if (t.headerText) {
+          headerStr = t.headerText;
+        }
+
+        let footerStr = '';
+        if (typeof t.footer === 'string') {
+          footerStr = t.footer;
+        } else if (t.footer && typeof t.footer === 'object') {
+          footerStr = t.footer.text || t.footerText || '';
+        } else if (t.footerText) {
+          footerStr = t.footerText;
+        }
+
+        let bodyStr = '';
+        if (typeof t.body === 'string') {
+          bodyStr = t.body;
+        } else if (t.body && typeof t.body === 'object') {
+          bodyStr = t.body.text || t.bodyText || '';
+        } else if (t.bodyText) {
+          bodyStr = t.bodyText;
+        }
+
+        let buttonsArr = [];
+        if (Array.isArray(t.buttons)) {
+          buttonsArr = t.buttons;
+        } else if (typeof t.buttons === 'string') {
+          try {
+            buttonsArr = JSON.parse(t.buttons);
+          } catch {}
+        }
+
+        return {
+          ...t,
+          header: headerStr,
+          headerText: headerStr,
+          headerType: headerFormat ? headerFormat.toLowerCase() : 'text',
+          headerFormat: headerFormat,
+          body: bodyStr,
+          bodyText: bodyStr,
+          footer: footerStr,
+          footerText: footerStr,
+          buttons: buttonsArr,
+          status: (t.status === 'Active' || !t.status) && (t.type === 'whatsapp' || !t.type) ? 'APPROVED' : (t.status || 'APPROVED'),
+          metaStatus: t.metaStatus || 'APPROVED',
+          whatsappTemplateId: t.whatsappTemplateId || t.metaTemplateId || String(t.id),
+        };
+      });
+
+      // Return { success: true, data: ... } for WhatsApp routes and channel-scoped queries
+      if (req.originalUrl.includes('/whatsapp/') || req.query.channelId !== undefined) {
+        return res.status(200).json({
+          success: true,
+          data: normalizedItems,
+          pagination: {
+            page: result.page || 1,
+            limit: result.limit || 100,
+            total: result.total || normalizedItems.length,
+            totalPages: result.totalPages || 1,
+          },
+        });
+      }
+
+      return res.status(200).json(normalizedItems);
     } catch (error) {
       next(error);
     }

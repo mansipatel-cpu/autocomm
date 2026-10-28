@@ -107,56 +107,79 @@ export function TemplatePickerDialog({ channelId, onSelectTemplate, trigger, sub
         queryFn: async () => {
             const response = await api.getTemplates(channelId);
             const data = await response.json();
-            return Array.isArray(data.data) ? data.data : [];
+            return Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
         },
-        enabled: !!channelId && open,
+        enabled: open,
     });
     const approvedTemplates = Array.isArray(templates)
-        ? templates.filter((t) => t?.status?.toLowerCase().includes("approve"))
+        ? templates.filter((t) => {
+            const st = (t?.status || t?.metaStatus || "").toLowerCase();
+            return st.includes("approve") || st === "active" || !t?.status;
+        })
         : [];
     const getVariableCount = (body) => {
-        const matches = body.match(/\{\{\d+\}\}/g);
+        if (!body) return 0;
+        const bodyStr = typeof body === "string" ? body : (body.text || "");
+        const matches = bodyStr.match(/\{\{\d+\}\}/g);
         return matches ? matches.length : 0;
     };
     const fetchTemplateMeta = async (templateWhatsappId) => {
-        const res = await fetch(`/api/whatsapp/templates/${templateWhatsappId}/meta?channelId=${channelId}`);
-        const data = await res.json();
-        return data;
+        if (!templateWhatsappId) return {};
+        try {
+            const res = await fetch(`/api/whatsapp/templates/${templateWhatsappId}/meta?channelId=${channelId || ""}`);
+            if (!res.ok) return {};
+            const data = await res.json();
+            return data?.meta || data || {};
+        } catch {
+            return {};
+        }
     };
     const handleTemplateSelect = async (template) => {
-        const varCount = getVariableCount(template.body);
-        setSelectedTemplate(template);
-        setUploadedMediaId(null);
-        setIsUploading(false);
-        setHasLimitedTimeOffer(false);
-        setExpirationDate("");
-        setIsCarouselTemplate(false);
-        setCarouselCards([]);
-        setCardMediaIds({});
-        setCardUploadingIdx(null);
-        setVariables(Array.from({ length: varCount }, () => ({
-            type: undefined,
-            value: "",
-        })));
-        const meta = await fetchTemplateMeta(template.whatsappTemplateId);
-        if (meta.hasLimitedTimeOffer) {
-            setHasLimitedTimeOffer(true);
-            const defaultExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
-            const localIso = new Date(defaultExpiry.getTime() - defaultExpiry.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-            setExpirationDate(localIso);
-        }
-        const isCarousel = Array.isArray(template.carouselCards) && template.carouselCards.length > 0;
-        setIsCarouselTemplate(isCarousel);
-        if (isCarousel) {
-            setCarouselCards(template.carouselCards);
-        }
-        const header = meta.headerType?.toLowerCase() ?? null;
-        setHeaderType(header);
-        setRequiresHeaderImage(!isCarousel && ["image", "video", "document"].includes(header));
-        const MEDIA_HEADERS = ["IMAGE", "VIDEO", "DOCUMENT"];
-        const hasMediaHeader = template.components?.some((c) => c.type === "HEADER" && MEDIA_HEADERS.includes(c.format));
-        if (!hasMediaHeader) {
+        try {
+            const bodyStr = typeof template?.body === "string" ? template.body : (template?.body?.text || template?.bodyText || "");
+            const varCount = getVariableCount(bodyStr);
+            setSelectedTemplate(template);
             setUploadedMediaId(null);
+            setIsUploading(false);
+            setHasLimitedTimeOffer(false);
+            setExpirationDate("");
+            setIsCarouselTemplate(false);
+            setCarouselCards([]);
+            setCardMediaIds({});
+            setCardUploadingIdx(null);
+            const sampleParams = template.sampleParameters || template.samples || {};
+            const sampleArr = Array.isArray(sampleParams) ? sampleParams : Object.values(sampleParams);
+            const initialVars = Array.from({ length: varCount }, (_, idx) => {
+                const sampleVal = sampleArr[idx] || (sampleParams[String(idx + 1)]) || "";
+                if (idx === 0) {
+                    return { type: "fullName", value: "" };
+                }
+                return { type: "custom", value: sampleVal || `Value ${idx + 1}` };
+            });
+            setVariables(initialVars);
+            const tmplId = template.whatsappTemplateId || template.metaTemplateId || template.id;
+            const meta = await fetchTemplateMeta(tmplId);
+            if (meta?.hasLimitedTimeOffer) {
+                setHasLimitedTimeOffer(true);
+                const defaultExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
+                const localIso = new Date(defaultExpiry.getTime() - defaultExpiry.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+                setExpirationDate(localIso);
+            }
+            const isCarousel = Array.isArray(template.carouselCards) && template.carouselCards.length > 0;
+            setIsCarouselTemplate(isCarousel);
+            if (isCarousel) {
+                setCarouselCards(template.carouselCards);
+            }
+            const header = meta?.headerType?.toLowerCase() ?? (typeof template.headerType === "string" ? template.headerType : null);
+            setHeaderType(header);
+            setRequiresHeaderImage(!isCarousel && ["image", "video", "document"].includes(header));
+            const MEDIA_HEADERS = ["IMAGE", "VIDEO", "DOCUMENT"];
+            const hasMediaHeader = template.components?.some((c) => c.type === "HEADER" && MEDIA_HEADERS.includes(c.format));
+            if (!hasMediaHeader) {
+                setUploadedMediaId(null);
+            }
+        } catch (err) {
+            console.error("handleTemplateSelect failed:", err);
         }
     };
     const uploadCardMedia = async (file, cardIdx) => {
@@ -233,12 +256,46 @@ export function TemplatePickerDialog({ channelId, onSelectTemplate, trigger, sub
         setCardMediaIds({});
         setCardUploadingIdx(null);
     };
+    const handleDirectSelect = (template) => {
+        try {
+            const bodyStr = typeof template?.body === "string" ? template.body : (template?.body?.text || template?.bodyText || "");
+            const varCount = getVariableCount(bodyStr);
+            const sampleParams = template.sampleParameters || template.samples || {};
+            const sampleArr = Array.isArray(sampleParams) ? sampleParams : Object.values(sampleParams);
+            const defaultVars = Array.from({ length: varCount }, (_, idx) => {
+                const sampleVal = sampleArr[idx] || (sampleParams[String(idx + 1)]) || "";
+                if (idx === 0) {
+                    return { type: "fullName", value: "" };
+                }
+                return { type: "custom", value: sampleVal || `Value ${idx + 1}` };
+            });
+            const allBtns = getTemplateButtons(template);
+            const dynamicBtnValues = [];
+            allBtns.forEach((btn) => {
+                if (btn.type === "URL" && btn.url?.includes("{{")) {
+                    dynamicBtnValues.push(btn.example?.[0] || "");
+                } else if (btn.type === "COPY_CODE") {
+                    dynamicBtnValues.push(btn.example?.[0] || "");
+                }
+            });
+            const headerTypeVal = typeof template.headerType === "string" ? template.headerType : null;
+            onSelectTemplate(
+                template,
+                defaultVars,
+                undefined,
+                headerTypeVal,
+                dynamicBtnValues.length > 0 ? dynamicBtnValues : undefined,
+                undefined,
+                undefined
+            );
+            setOpen(false);
+            resetState();
+        } catch (err) {
+            console.error("handleDirectSelect failed:", err);
+        }
+    };
     const handleSend = () => {
         if (!selectedTemplate)
-            return;
-        if (requiresHeaderImage && !uploadedMediaId)
-            return;
-        if (hasLimitedTimeOffer && !expirationDate)
             return;
         const allBtns = getTemplateButtons(selectedTemplate);
         const dynamicBtnValues = [];
@@ -257,7 +314,19 @@ export function TemplatePickerDialog({ channelId, onSelectTemplate, trigger, sub
         const carouselMediaIds = isCarouselTemplate && Object.keys(cardMediaIds).length > 0
             ? cardMediaIds
             : undefined;
-        onSelectTemplate(selectedTemplate, variables, uploadedMediaId || undefined, headerType, dynamicBtnValues.length > 0 ? dynamicBtnValues : undefined, ltoExpirationMs, carouselMediaIds);
+        const sampleParams = selectedTemplate?.sampleParameters || selectedTemplate?.samples || {};
+        const sampleArr = Array.isArray(sampleParams) ? sampleParams : Object.values(sampleParams);
+        const cleanVariables = variables.map((v, idx) => {
+            const sampleVal = sampleArr[idx] || (sampleParams[String(idx + 1)]) || "";
+            if (!v.type) {
+                return idx === 0 ? { type: "fullName", value: "" } : { type: "custom", value: sampleVal || `Value ${idx + 1}` };
+            }
+            if (v.type === "custom" && !v.value?.trim()) {
+                return { ...v, value: sampleVal || `Value ${idx + 1}` };
+            }
+            return v;
+        });
+        onSelectTemplate(selectedTemplate, cleanVariables, uploadedMediaId || undefined, headerType, dynamicBtnValues.length > 0 ? dynamicBtnValues : undefined, ltoExpirationMs, carouselMediaIds);
         setOpen(false);
         resetState();
     };
@@ -361,12 +430,14 @@ export function TemplatePickerDialog({ channelId, onSelectTemplate, trigger, sub
                             </span>)}
                         </div>
                         {template.header && (<p className="text-sm font-medium text-gray-800 truncate mb-0.5">
-                            {template.header}
+                            {typeof template.header === "object" ? template.header.text : String(template.header)}
                           </p>)}
                         <p className="text-sm text-gray-600 line-clamp-2">
-                          {template.body}
+                          {typeof template.body === "object" ? template.body.text : String(template.body || "")}
                         </p>
-                        {template.footer && (<p className="text-xs text-gray-400 italic mt-1">{template.footer}</p>)}
+                        {template.footer && (<p className="text-xs text-gray-400 italic mt-1">
+                            {typeof template.footer === "object" ? template.footer.text : String(template.footer)}
+                          </p>)}
                         {buttons.length > 0 && (<div className="flex flex-wrap gap-1 mt-2">
                             {buttons.map((button, idx) => {
                                 const BtnIcon = templateButtonTypeIcons[button.type] || MousePointerClick;
@@ -376,15 +447,35 @@ export function TemplatePickerDialog({ channelId, onSelectTemplate, trigger, sub
                                 </Badge>);
                             })}
                           </div>)}
+                        <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-slate-100">
+                          <span className="text-xs text-slate-400 group-hover:text-blue-500 transition-colors">Click to configure</span>
+                          <Button
+                            type="button"
+                            size="sm"
+                            className="h-7 px-3 text-xs bg-blue-600 hover:bg-blue-700 text-white font-medium shadow-sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDirectSelect(template);
+                            }}
+                          >
+                            Select
+                          </Button>
+                        </div>
                       </div>);
                 })}
                 </div>);
         })()) : (<div className="space-y-4">
               <div className="p-4 bg-gray-50 rounded-lg space-y-2">
                 <h4 className="font-medium">{selectedTemplate.name}</h4>
-                {selectedTemplate.header && !requiresHeaderImage && (<p className="text-sm font-medium text-gray-800">{selectedTemplate.header}</p>)}
-                <p className="text-sm text-gray-600">{selectedTemplate.body}</p>
-                {selectedTemplate.footer && (<p className="text-xs text-gray-400 italic">{selectedTemplate.footer}</p>)}
+                {selectedTemplate.header && !requiresHeaderImage && (<p className="text-sm font-medium text-gray-800">
+                    {typeof selectedTemplate.header === "object" ? selectedTemplate.header.text : String(selectedTemplate.header)}
+                  </p>)}
+                <p className="text-sm text-gray-600">
+                  {typeof selectedTemplate.body === "object" ? selectedTemplate.body.text : String(selectedTemplate.body || "")}
+                </p>
+                {selectedTemplate.footer && (<p className="text-xs text-gray-400 italic">
+                    {typeof selectedTemplate.footer === "object" ? selectedTemplate.footer.text : String(selectedTemplate.footer)}
+                  </p>)}
                 {(() => {
                 const previewButtons = getTemplateButtons(selectedTemplate);
                 if (previewButtons.length === 0)
@@ -564,8 +655,7 @@ export function TemplatePickerDialog({ channelId, onSelectTemplate, trigger, sub
                 <Button variant="outline" onClick={() => resetState()}>
                   Back
                 </Button>
-                <Button onClick={handleSend} disabled={variables.some((v) => !v.type || (v.type === "custom" && !v.value?.trim())) ||
-                isUploading ||
+                <Button onClick={handleSend} disabled={isUploading ||
                 (requiresHeaderImage && !uploadedMediaId) ||
                 (hasLimitedTimeOffer && !expirationDate) ||
                 cardUploadingIdx !== null}>
