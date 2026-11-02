@@ -28,6 +28,7 @@ export const processCampaignDispatch = async (campaignId, clientId) => {
   let failedCount = metrics.failed || 0;
 
   let activeChannel = null;
+  let activeTemplate = null;
   if (campaign.channelType === 'whatsapp') {
     try {
       const { Channel } = await import('../modules/channels/model.js');
@@ -49,6 +50,23 @@ export const processCampaignDispatch = async (campaignId, clientId) => {
         accessToken: process.env.META_ACCESS_TOKEN || 'EAAdO7qEObzsBRo4RPaAycf2FZCv9AHcY14I9qp9rPd07jqZCntBt7oOGWkWwURhBOTJRGZBWL5kZB6KIgXhisHHPLOrocgZBxIapI8swmz6ve6yLyuhHDAOH4h756ta1n6p9IvuE9l0L3gEcdm27a84mxX8tHutMRSUQ0Pu5sLTkZCvZA0xoYDKindIo45I9INaugZDZD',
         channelName: 'test_capermint',
       };
+    }
+
+    if (campaign.templateName && campaign.templateName !== 'WhatsApp Official Template') {
+      try {
+        const { Template } = await import('../modules/templates/model.js');
+        if (campaign.templateId) {
+          activeTemplate = await Template.findOne({ _id: campaign.templateId });
+        }
+        if (!activeTemplate) {
+          activeTemplate = await Template.findOne({ clientId, name: campaign.templateName, type: 'whatsapp' });
+        }
+        if (!activeTemplate) {
+          activeTemplate = await Template.findOne({ name: campaign.templateName, type: 'whatsapp' });
+        }
+      } catch (tErr) {
+        logger.warn('[CampaignWorker Template fetch error]:', tErr?.message || tErr);
+      }
     }
   }
 
@@ -75,6 +93,49 @@ export const processCampaignDispatch = async (campaignId, clientId) => {
                 language: { code: campaign.language || campaign.templateLanguage || 'en_US' },
               },
             };
+
+            // Build dynamic parameters if template body requires {{1}}, {{2}}, etc.
+            const components = [];
+            const bodyText = activeTemplate?.bodyText || activeTemplate?.body || '';
+            const bodyMatches = bodyText.match(/\{\{(\d+)\}\}/g) || [];
+
+            if (bodyMatches.length > 0) {
+              let customVars = recipient.customVariables || {};
+              if (typeof customVars === 'string') {
+                try { customVars = JSON.parse(customVars); } catch {}
+              }
+              let sampleParams = activeTemplate?.sampleParameters || {};
+              if (typeof sampleParams === 'string') {
+                try { sampleParams = JSON.parse(sampleParams); } catch {}
+              }
+
+              const parameters = bodyMatches.map((_, idx) => {
+                const varNum = String(idx + 1);
+                let val = customVars[varNum] || customVars[`var${varNum}`] || customVars[`param${varNum}`];
+                if (!val && idx === 0 && recipient.name) {
+                  val = recipient.name;
+                }
+                if (!val && sampleParams[varNum]) {
+                  val = sampleParams[varNum];
+                }
+                if (!val && idx === 0) {
+                  val = recipient.name || 'Valued Customer';
+                }
+                if (!val) {
+                  val = 'AutoComm';
+                }
+                return { type: 'text', text: String(val) };
+              });
+
+              components.push({
+                type: 'body',
+                parameters,
+              });
+            }
+
+            if (components.length > 0) {
+              metaBody.template.components = components;
+            }
           } else {
             metaBody = {
               messaging_product: 'whatsapp',
