@@ -79,7 +79,7 @@ export const formatRow = (row, model = null) => {
   if (row.id !== undefined) {
     doc.id = row.id;
 
-    // Provide _id alias as non-enumerable for Mongoose compatibility without duplicate key in JSON
+    // Provide _id alias as enumerable for full Mongoose and frontend compatibility
     Object.defineProperty(doc, '_id', {
       get() {
         return this.id;
@@ -87,7 +87,7 @@ export const formatRow = (row, model = null) => {
       set(val) {
         this.id = val;
       },
-      enumerable: false,
+      enumerable: true,
       configurable: true,
     });
   }

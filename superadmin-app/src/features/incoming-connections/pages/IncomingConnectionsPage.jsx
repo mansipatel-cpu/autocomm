@@ -141,7 +141,8 @@ export const IncomingConnectionsPage = () => {
   const handleSaveEdit = async (e) => {
     e.preventDefault();
     try {
-      await superAdminApiClient.put(`/incoming-connections/${editingConnection._id}`, editFormData);
+      const targetId = editingConnection?.id || editingConnection?._id;
+      await superAdminApiClient.put(`/incoming-connections/${targetId}`, editFormData);
       setActionMessage(`Connection "${editingConnection.name}" updated.`);
       setEditingConnection(null);
       fetchConnections();
@@ -152,13 +153,14 @@ export const IncomingConnectionsPage = () => {
 
   const handleOpenAssign = (conn) => {
     setAssigningConnection(conn);
-    setSelectedClientId(conn.clientId?._id || conn.clientId || '');
+    setSelectedClientId(conn.clientId?._id || conn.clientId?.id || conn.clientId || '');
   };
 
   const handleSaveAssign = async (e) => {
     e.preventDefault();
     try {
-      const res = await superAdminApiClient.put(`/incoming-connections/${assigningConnection._id}/assign`, {
+      const targetId = assigningConnection?.id || assigningConnection?._id;
+      const res = await superAdminApiClient.put(`/incoming-connections/${targetId}/assign`, {
         clientId: selectedClientId || 'none',
       });
       setActionMessage(res.data.message || 'Client assignment updated');
@@ -182,7 +184,8 @@ export const IncomingConnectionsPage = () => {
     setLogsConnection(conn);
     setLoadingLogs(true);
     try {
-      const res = await superAdminApiClient.get(`/incoming-connections/${conn._id}/logs`);
+      const targetId = conn?.id || conn?._id;
+      const res = await superAdminApiClient.get(`/incoming-connections/${targetId}/logs`);
       setLogs(res.data.data || []);
     } catch (err) {
       console.error('Failed to load logs', err);
@@ -193,6 +196,7 @@ export const IncomingConnectionsPage = () => {
   };
 
   const handleDeleteConnection = (conn) => {
+    const targetId = conn?.id || conn?._id;
     setConfirmModal({
       isOpen: true,
       title: 'Delete Incoming Connection',
@@ -201,11 +205,12 @@ export const IncomingConnectionsPage = () => {
       isDanger: true,
       onConfirm: async () => {
         try {
-          await superAdminApiClient.delete(`/incoming-connections/${conn._id}`);
+          await superAdminApiClient.delete(`/incoming-connections/${targetId}`);
           setActionMessage(`Connection "${conn.name}" deleted.`);
           fetchConnections();
         } catch (err) {
-          alert('Failed to delete connection');
+          const errMsg = err.response?.data?.message || err.response?.data?.error || err.message || 'Failed to delete connection';
+          alert(errMsg);
         } finally {
           setConfirmModal((prev) => ({ ...prev, isOpen: false }));
         }
@@ -336,7 +341,7 @@ export const IncomingConnectionsPage = () => {
                 </tr>
               ) : (
                 connections.map((c) => (
-                  <tr key={c._id} className="hover:bg-slate-900/40 transition-colors">
+                  <tr key={c.id || c._id} className="hover:bg-slate-900/40 transition-colors">
                     <td className="py-3 px-4 font-semibold text-white flex items-center gap-2">
                       <Link2 className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
                       <span>{c.name}</span>
@@ -397,7 +402,7 @@ export const IncomingConnectionsPage = () => {
                           <Edit className="w-3.5 h-3.5" />
                         </button>
                         <button
-                          onClick={() => handleToggleStatus(c._id)}
+                          onClick={() => handleToggleStatus(c.id || c._id)}
                           title="Toggle Status"
                           className="p-1 text-slate-400 hover:text-emerald-400 hover:bg-slate-800 rounded transition-colors"
                         >

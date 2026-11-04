@@ -150,7 +150,8 @@ export const PhoneNumbersPage = () => {
   const handleSaveEdit = async (e) => {
     e.preventDefault();
     try {
-      await superAdminApiClient.put(`/phone-numbers/${editingNumber._id}`, editFormData);
+      const targetId = editingNumber?.id || editingNumber?._id;
+      await superAdminApiClient.put(`/phone-numbers/${targetId}`, editFormData);
       setActionMessage(`Phone number ${editingNumber.phoneNumber} updated.`);
       setEditingNumber(null);
       fetchNumbers();
@@ -161,13 +162,14 @@ export const PhoneNumbersPage = () => {
 
   const handleOpenAssign = (num) => {
     setAssigningNumber(num);
-    setSelectedClientId(num.clientId?._id || num.clientId || '');
+    setSelectedClientId(num.clientId?._id || num.clientId?.id || num.clientId || '');
   };
 
   const handleSaveAssign = async (e) => {
     e.preventDefault();
     try {
-      const res = await superAdminApiClient.put(`/phone-numbers/${assigningNumber._id}/assign`, {
+      const targetId = assigningNumber?.id || assigningNumber?._id;
+      const res = await superAdminApiClient.put(`/phone-numbers/${targetId}/assign`, {
         clientId: selectedClientId || 'none',
       });
       setActionMessage(res.data.message || 'Assignment updated successfully');
@@ -188,6 +190,7 @@ export const PhoneNumbersPage = () => {
   };
 
   const handleDeleteNumber = (num) => {
+    const targetId = num?.id || num?._id;
     setConfirmModal({
       isOpen: true,
       title: 'Delete Carrier Phone Number',
@@ -196,11 +199,12 @@ export const PhoneNumbersPage = () => {
       isDanger: true,
       onConfirm: async () => {
         try {
-          await superAdminApiClient.delete(`/phone-numbers/${num._id}`);
+          await superAdminApiClient.delete(`/phone-numbers/${targetId}`);
           setActionMessage(`Number ${num.phoneNumber} removed from platform.`);
           fetchNumbers();
         } catch (err) {
-          alert('Failed to delete number');
+          const errMsg = err.response?.data?.message || err.response?.data?.error || err.message || 'Failed to delete number';
+          alert(errMsg);
         } finally {
           setConfirmModal((prev) => ({ ...prev, isOpen: false }));
         }
@@ -342,7 +346,7 @@ export const PhoneNumbersPage = () => {
                 </tr>
               ) : (
                 numbers.map((n) => (
-                  <tr key={n._id} className="hover:bg-slate-900/40 transition-colors">
+                  <tr key={n.id || n._id} className="hover:bg-slate-900/40 transition-colors">
                     <td className="py-3 px-4 font-mono font-medium text-indigo-400">{n.phoneNumber}</td>
                     <td className="py-3 px-4 font-semibold text-white">{n.friendlyName || '—'}</td>
                     <td className="py-3 px-4">
@@ -403,7 +407,7 @@ export const PhoneNumbersPage = () => {
                           <Edit className="w-3.5 h-3.5" />
                         </button>
                         <button
-                          onClick={() => handleToggleStatus(n._id)}
+                          onClick={() => handleToggleStatus(n.id || n._id)}
                           title="Toggle Status"
                           className="p-1 text-slate-400 hover:text-emerald-400 hover:bg-slate-800 rounded transition-colors"
                         >

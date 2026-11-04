@@ -26,10 +26,10 @@ import { useAppHeader } from "@/shared/components/AppPageHeader";
 import { queryClient } from "@/shared/lib/queryClient";
 import { AuthStorage } from "@/shared/lib/auth-storage";
 function statusBadgeClass(status) {
-    const key = status.toLowerCase();
+    const key = String(status || "").toLowerCase();
     if (key === "completed")
         return "bg-emerald-50 text-emerald-600";
-    if (key === "in_progress" || key === "in-progress" || key === "running")
+    if (key === "in_progress" || key === "in-progress" || key === "running" || key === "ongoing")
         return "bg-blue-50 text-blue-600";
     if (key === "scheduled")
         return "bg-violet-50 text-violet-600";
@@ -40,6 +40,7 @@ function statusBadgeClass(status) {
     return "bg-orange-50 text-orange-600";
 }
 function formatStatusLabel(status) {
+    const key = String(status || "").toLowerCase();
     const map = {
         pending: "Pending",
         draft: "Draft",
@@ -47,27 +48,31 @@ function formatStatusLabel(status) {
         in_progress: "In Progress",
         "in-progress": "In Progress",
         running: "In Progress",
+        ongoing: "In Progress",
         paused: "Paused",
         completed: "Completed",
         failed: "Failed",
         cancelled: "Cancelled",
     };
-    return map[status.toLowerCase()] || status;
+    return map[key] || (status ? String(status).charAt(0).toUpperCase() + String(status).slice(1) : "Draft");
 }
 function formatScheduleWindow(campaign) {
-    if (!campaign.scheduleEnabled || !campaign.scheduleTimeStart || !campaign.scheduleTimeEnd) {
+    if (!campaign || !campaign.scheduleEnabled || !campaign.scheduleTimeStart || !campaign.scheduleTimeEnd) {
         return "Anytime";
     }
     const formatTime = (value) => {
-        const [h, m] = value.split(":").map(Number);
+        if (!value || typeof value !== "string") return "—";
+        const parts = value.split(":");
+        const h = Number(parts[0]);
+        const m = Number(parts[1] || 0);
         if (Number.isNaN(h))
             return value;
         const date = new Date();
         date.setHours(h, m || 0, 0, 0);
         return format(date, "hh:mm a");
     };
-    const dayLabels = (campaign.scheduleDays || [])
-        .map((d) => d.slice(0, 3))
+    const dayLabels = (Array.isArray(campaign.scheduleDays) ? campaign.scheduleDays : [])
+        .map((d) => String(d || "").slice(0, 3))
         .map((d) => d.charAt(0).toUpperCase() + d.slice(1).toLowerCase());
     const days = dayLabels.length === 5 &&
         ["Mon", "Tue", "Wed", "Thu", "Fri"].every((d) => dayLabels.some((x) => x.toLowerCase().startsWith(d.toLowerCase().slice(0, 3))))
@@ -80,7 +85,7 @@ function formatScheduleWindow(campaign) {
         ? "IST"
         : tz === "America/New_York"
             ? "ET"
-            : tz.split("/").pop()?.replace(/_/g, " ") || tz;
+            : String(tz).split("/").pop()?.replace(/_/g, " ") || tz;
     return `${formatTime(campaign.scheduleTimeStart)} - ${formatTime(campaign.scheduleTimeEnd)} (${days}, ${tzShort})`;
 }
 export default function CampaignDetail() {
@@ -98,23 +103,45 @@ export default function CampaignDetail() {
         });
         return () => setPageMeta(null);
     }, [setPageMeta]);
-    const { data: campaign, isLoading: campaignLoading } = useQuery({
+    const { data: rawCampaign, isLoading: campaignLoading } = useQuery({
         queryKey: [`/api/campaigns/${id}`],
         enabled: !!id,
         refetchInterval: (query) => {
             const data = query.state.data;
-            const status = data?.status?.toLowerCase();
-            return status === "running" || status === "in-progress" || status === "in_progress" ? 3000 : false;
+            const status = String(data?.status || "").toLowerCase();
+            return status === "running" || status === "in-progress" || status === "in_progress" || status === "ongoing" ? 3000 : false;
         },
     });
-    const { data: contacts = [], isLoading: contactsLoading } = useQuery({
+    const campaign = useMemo(() => {
+        if (!rawCampaign) return null;
+        let base = rawCampaign;
+        if (Array.isArray(rawCampaign)) base = rawCampaign[0];
+        else if (rawCampaign.campaign) base = rawCampaign.campaign;
+        else if (rawCampaign.data && typeof rawCampaign.data === "object" && !Array.isArray(rawCampaign.data)) base = rawCampaign.data;
+        return base;
+    }, [rawCampaign]);
+
+    const { data: rawContacts = [], isLoading: contactsLoading } = useQuery({
         queryKey: [`/api/campaigns/${id}/contacts`],
         enabled: !!id,
     });
-    const { data: calls = [] } = useQuery({
+    const contacts = useMemo(() => {
+        if (Array.isArray(rawContacts)) return rawContacts;
+        if (Array.isArray(rawContacts?.data)) return rawContacts.data;
+        if (Array.isArray(rawContacts?.contacts)) return rawContacts.contacts;
+        if (Array.isArray(rawContacts?.recipients)) return rawContacts.recipients;
+        return [];
+    }, [rawContacts]);
+
+    const { data: rawCalls = [] } = useQuery({
         queryKey: [`/api/campaigns/${id}/calls`],
         enabled: !!id,
     });
+    const calls = useMemo(() => {
+        if (Array.isArray(rawCalls)) return rawCalls;
+        if (Array.isArray(rawCalls?.data)) return rawCalls.data;
+        return [];
+    }, [rawCalls]);
     const { data: agents = [] } = useQuery({
         queryKey: ["/api/agents"],
     });
@@ -268,18 +295,22 @@ export default function CampaignDetail() {
         </div>
       </div>);
     }
-    const progress = campaign.totalContacts > 0
-        ? Math.round((campaign.completedCalls / campaign.totalContacts) * 100)
+    const totalContacts = Number(campaign?.totalContacts ?? campaign?.recipientCount ?? campaign?.metrics?.totalRecipients ?? contacts.length ?? 0);
+    const completedCalls = Number(campaign?.completedCalls ?? campaign?.metrics?.answered ?? campaign?.metrics?.sent ?? 0);
+    const successfulCalls = Number(campaign?.successfulCalls ?? campaign?.metrics?.answered ?? 0);
+    const failedCalls = Number(campaign?.failedCalls ?? campaign?.metrics?.failed ?? 0);
+    const progress = totalContacts > 0
+        ? Math.round((completedCalls / totalContacts) * 100)
         : 0;
-    const pendingCalls = Math.max(campaign.totalContacts - campaign.completedCalls - campaign.failedCalls, 0);
-    const successRate = campaign.completedCalls > 0
-        ? Math.round((campaign.successfulCalls / campaign.completedCalls) * 100)
+    const pendingCalls = Math.max(totalContacts - completedCalls - failedCalls, 0);
+    const successRate = completedCalls > 0
+        ? Math.round((successfulCalls / completedCalls) * 100)
         : 0;
-    const failureRate = campaign.totalContacts > 0
-        ? Math.round((campaign.failedCalls / campaign.totalContacts) * 100)
+    const failureRate = totalContacts > 0
+        ? Math.round((failedCalls / totalContacts) * 100)
         : 0;
-    const pendingRate = campaign.totalContacts > 0
-        ? Math.round((pendingCalls / campaign.totalContacts) * 100)
+    const pendingRate = totalContacts > 0
+        ? Math.round((pendingCalls / totalContacts) * 100)
         : 0;
     return (<div className="space-y-5 pb-10">
       <div className="flex items-center gap-2 text-[13px] text-slate-400">
@@ -535,16 +566,16 @@ export default function CampaignDetail() {
                   </TableCell>
                 </TableRow>) : (contacts.map((contact) => {
             const status = getContactStatus(contact);
-            const language = contact.customFields?.language ||
+            const language = contact.language || contact.customVariables?.language || contact.customFields?.language ||
                 contact.customFields?.Language ||
                 "—";
-            const city = contact.customFields?.city ||
+            const city = contact.city || contact.customVariables?.city || contact.customFields?.city ||
                 contact.customFields?.City ||
                 "—";
             return (<TableRow key={contact.id} className="border-slate-100">
-                      <TableCell className="text-sm text-slate-800">{contact.phone}</TableCell>
+                      <TableCell className="text-sm text-slate-800">{contact.phoneNumber || contact.phone || "—"}</TableCell>
                       <TableCell className="text-sm text-slate-800">
-                        {[contact.firstName, contact.lastName].filter(Boolean).join(" ") || "—"}
+                        {[contact.firstName, contact.lastName].filter(Boolean).join(" ") || contact.name || "—"}
                       </TableCell>
                       <TableCell className="text-sm text-slate-500">{contact.email || "—"}</TableCell>
                       <TableCell className="text-sm text-slate-500">{String(language)}</TableCell>

@@ -26,10 +26,36 @@ export class CampaignService {
     }
 
     const skip = (page - 1) * limit;
-    const [campaigns, total] = await Promise.all([
+    const [rawCampaigns, total] = await Promise.all([
       Campaign.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
       Campaign.countDocuments(filter),
     ]);
+
+    const campaigns = await Promise.all(
+      rawCampaigns.map(async (c) => {
+        const met = c.metrics || {};
+        let recipientCount = Number(met.totalRecipients ?? met.totalContacts ?? 0);
+        if (!recipientCount && c.id) {
+          try {
+            recipientCount = await CampaignRecipient.countDocuments({ campaignId: c.id });
+          } catch {}
+        }
+        const completedCalls = Number(met.answered ?? met.completedCalls ?? met.sent ?? (c.status === 'Completed' ? recipientCount : 0));
+        const successfulCalls = Number(met.answered ?? met.successfulCalls ?? completedCalls);
+        const failedCalls = Number(met.failed ?? 0);
+
+        return {
+          ...c,
+          totalContacts: recipientCount,
+          recipientCount,
+          completedCalls,
+          successfulCalls,
+          failedCalls,
+          sent: completedCalls,
+          delivered: successfulCalls,
+        };
+      })
+    );
 
     return {
       campaigns,
@@ -177,17 +203,56 @@ export class CampaignService {
     const {
       name,
       campaignType,
+      type,
       campaignGoal,
+      goal,
       agentId,
       agentName,
       phoneNumber,
+      phoneNumberId,
+      sipPhoneNumberId,
+      plivoPhoneNumberId,
       visualFlowName,
+      flowId,
       customScript,
+      script,
       callScheduling,
+      scheduleEnabled,
+      scheduleTimeStart,
+      scheduleTimeEnd,
+      scheduleDays,
+      scheduleTimezone,
       csvContacts,
     } = data;
 
     if (!name) throw AppError.badRequest('Campaign name is required');
+
+    let resolvedAgentName = agentName;
+    if (agentId && !resolvedAgentName) {
+      try {
+        const { Agent } = await import('../agents/model.js');
+        const ag = await Agent.findOne({ _id: agentId });
+        if (ag) resolvedAgentName = ag.name;
+      } catch {}
+    }
+
+    let resolvedPhoneNumber = phoneNumber;
+    const phoneId = phoneNumberId || sipPhoneNumberId || plivoPhoneNumberId;
+    if (phoneId && !resolvedPhoneNumber) {
+      try {
+        const { PhoneNumber } = await import('../phone-numbers/model.js');
+        const ph = await PhoneNumber.findOne({ _id: phoneId });
+        if (ph) resolvedPhoneNumber = ph.phoneNumber;
+      } catch {}
+    }
+
+    const resolvedScheduling = callScheduling || {
+      enabled: Boolean(scheduleEnabled),
+      scheduleTimeStart: scheduleTimeStart || '09:00',
+      scheduleTimeEnd: scheduleTimeEnd || '17:00',
+      scheduleDays: scheduleDays || ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
+      scheduleTimezone: scheduleTimezone || 'America/New_York',
+    };
 
     const campaignCode = `CMP-${Math.floor(1000 + Math.random() * 9000)}-VC`;
 
@@ -196,14 +261,14 @@ export class CampaignService {
       name,
       campaignCode,
       channelType: CHANNEL_TYPES.VOICE,
-      campaignType: campaignType || 'Lead Qualification',
-      campaignGoal: campaignGoal || '',
-      agentId,
-      agentName: agentName || 'Maya - Conversational Lead Qualifier',
-      phoneNumber: phoneNumber || '+1 (800) 459-2311',
-      visualFlowName: visualFlowName || '',
-      customScript: customScript || '',
-      callScheduling: callScheduling || { enabled: false },
+      campaignType: campaignType || type || 'Lead Qualification',
+      campaignGoal: campaignGoal || goal || '',
+      agentId: agentId ? (!isNaN(agentId) ? parseInt(agentId, 10) : agentId) : null,
+      agentName: resolvedAgentName || 'Maya - Conversational Lead Qualifier',
+      phoneNumber: resolvedPhoneNumber || '+1 (800) 459-2311',
+      visualFlowName: visualFlowName || (flowId ? `Flow #${flowId}` : ''),
+      customScript: customScript || script || '',
+      callScheduling: resolvedScheduling,
       status: CAMPAIGN_STATUS.DRAFT,
     });
 
@@ -274,26 +339,42 @@ export class CampaignService {
     const sentCount = metrics.sent ?? metrics.sentCount ?? (['completed', 'active', 'sending', 'ongoing'].includes(campaign.status) ? totalRecipients : 0);
     const deliveredCount = metrics.delivered ?? metrics.deliveredCount ?? sentCount;
     const readCount = metrics.read ?? metrics.readCount ?? 0;
+    const answeredCount = metrics.answered ?? metrics.completedCalls ?? deliveredCount ?? 0;
     const failedCount = metrics.failed ?? metrics.failedCount ?? 0;
+
+    let sched = campaign.callScheduling;
+    if (typeof sched === 'string') {
+      try { sched = JSON.parse(sched); } catch { sched = {}; }
+    }
+    sched = sched || {};
 
     const normalizedCampaign = {
       ...campaign,
       id: campaign.id || campaign._id || numericId,
       _id: campaign._id || campaign.id || numericId,
-      name: campaign.name || 'WhatsApp Campaign',
-      type: campaign.channelType || 'whatsapp',
-      channelType: campaign.channelType || 'whatsapp',
-      apiType: campaign.apiType || 'Cloud API',
-      campaignType: campaign.campaignType || 'Marketing',
+      name: campaign.name || 'Campaign',
+      type: campaign.channelType || 'voice',
+      channelType: campaign.channelType || 'voice',
+      apiType: campaign.apiType || 'Voice API',
+      campaignType: campaign.campaignType || 'Lead Qualification',
       templateName: campaign.templateName || '',
       templateLanguage: campaign.language || campaign.templateLanguage || 'en_US',
-      status: campaign.status || 'completed',
+      status: campaign.status || 'draft',
       metrics,
       recipientCount: totalRecipients,
+      totalContacts: totalRecipients,
+      completedCalls: answeredCount,
+      successfulCalls: answeredCount,
+      failedCalls: failedCount,
       sentCount,
       deliveredCount,
       readCount,
       failedCount,
+      scheduleEnabled: Boolean(sched.enabled),
+      scheduleTimeStart: sched.scheduleTimeStart || '09:00',
+      scheduleTimeEnd: sched.scheduleTimeEnd || '17:00',
+      scheduleDays: sched.scheduleDays || ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
+      scheduleTimezone: sched.scheduleTimezone || 'America/New_York',
     };
 
     return {

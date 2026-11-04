@@ -79,7 +79,15 @@ export class CampaignController {
         req.user?.id || req.user?._id || 1,
         req.user?.name || req.user?.username || req.user?.email || 'User'
       );
-      return createdResponse(res, campaign, 'Auto Calling campaign created successfully');
+      const campObj = campaign?.toObject ? campaign.toObject() : campaign;
+      return res.status(201).json({
+        success: true,
+        data: campObj,
+        ...campObj,
+        id: campObj.id || campObj._id,
+        _id: campObj._id || campObj.id,
+        message: 'Auto Calling campaign created successfully',
+      });
     } catch (error) {
       next(error);
     }
@@ -88,11 +96,13 @@ export class CampaignController {
   static async getDetails(req, res, next) {
     try {
       const details = await CampaignService.getCampaignDetails(req.clientId, req.params.id);
+      const camp = details.campaign || {};
+      const { contacts: _c, recipients: _r, ...cleanCamp } = camp;
       return res.status(200).json({
         success: true,
-        data: details,
-        campaign: details.campaign,
-        recipients: details.recipients,
+        data: cleanCamp,
+        campaign: cleanCamp,
+        recipients: details.recipients || [],
       });
     } catch (error) {
       next(error);

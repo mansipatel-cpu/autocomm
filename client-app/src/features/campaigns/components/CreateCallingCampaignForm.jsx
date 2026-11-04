@@ -140,31 +140,34 @@ export function CreateCallingCampaignForm() {
     const isPlivoAgent = selectedAgent?.telephonyProvider === "plivo" ||
         selectedAgent?.telephonyProvider === "plivo_openai";
     const isCustomVoiceAgent = selectedAgent?.telephonyProvider === "custom-voice-engine";
-    const availableAgents = useMemo(() => agents
-        .filter((agent) => agent.telephonyProvider === "custom-voice-engine" || agent.type !== "incoming")
-        .filter((agent) => {
-        if (agent.telephonyProvider === "openai-sip")
-            return false;
-        if (agent.telephonyProvider === "elevenlabs-sip" && !isSipPluginEnabled)
-            return false;
-        return true;
-    }), [agents, isSipPluginEnabled]);
+    const availableAgents = useMemo(() => {
+        const filtered = agents
+            .filter((agent) => agent.telephonyProvider === "custom-voice-engine" || agent.type !== "incoming")
+            .filter((agent) => {
+                if (agent.telephonyProvider === "openai-sip")
+                    return false;
+                if (agent.telephonyProvider === "elevenlabs-sip" && !isSipPluginEnabled)
+                    return false;
+                return true;
+            });
+        return filtered.length > 0 ? filtered : agents;
+    }, [agents, isSipPluginEnabled]);
     const update = (key, value) => {
         setFormData((prev) => ({ ...prev, [key]: value }));
     };
     const availablePhoneCount = isElevenLabsSipAgent
-        ? sipPhoneNumbers.filter((phone) => phone.engine === "elevenlabs-sip").length
+        ? (sipPhoneNumbers.filter((phone) => phone.engine === "elevenlabs-sip").length || phoneNumbers.length)
         : isPlivoAgent
-            ? plivoPhoneNumbers.length
+            ? (plivoPhoneNumbers.length || phoneNumbers.length)
             : isCustomVoiceAgent
-                ? userSipPhoneNumbers.length
+                ? (userSipPhoneNumbers.length || phoneNumbers.length)
                 : phoneNumbers.length;
     const hasSelectedPhone = isElevenLabsSipAgent
-        ? Boolean(formData.sipPhoneNumberId)
+        ? Boolean(formData.sipPhoneNumberId || formData.phoneNumberId)
         : isPlivoAgent
-            ? Boolean(formData.plivoPhoneNumberId)
+            ? Boolean(formData.plivoPhoneNumberId || formData.phoneNumberId)
             : isCustomVoiceAgent
-                ? Boolean(formData.sipPhoneNumberId)
+                ? Boolean(formData.sipPhoneNumberId || formData.phoneNumberId)
                 : Boolean(formData.phoneNumberId);
     const notifyMissingPhone = () => {
         toast({
@@ -188,18 +191,18 @@ export function CreateCallingCampaignForm() {
             if (isElevenLabsSipAgent) {
                 if (!isSipPluginEnabled)
                     throw new Error("SIP Plugin is disabled");
-                if (!formData.sipPhoneNumberId)
+                if (!formData.sipPhoneNumberId && !formData.phoneNumberId)
                     throw new Error(availablePhoneCount === 0 ? NO_PHONE_MESSAGE : "Please select a phone number");
             }
             else if (isPlivoAgent) {
-                if (!formData.plivoPhoneNumberId)
+                if (!formData.plivoPhoneNumberId && !formData.phoneNumberId)
                     throw new Error(availablePhoneCount === 0 ? NO_PHONE_MESSAGE : "Please select a phone number");
             }
             else if (!isCustomVoiceAgent) {
                 if (!formData.phoneNumberId)
                     throw new Error(availablePhoneCount === 0 ? NO_PHONE_MESSAGE : "Please select a phone number");
             }
-            else if (!formData.sipPhoneNumberId) {
+            else if (!formData.sipPhoneNumberId && !formData.phoneNumberId) {
                 throw new Error(availablePhoneCount === 0 ? NO_PHONE_MESSAGE : "Please select a phone number");
             }
             if (formData.scheduleEnabled && formData.scheduleDays.length === 0) {
@@ -207,16 +210,18 @@ export function CreateCallingCampaignForm() {
             }
             const payload = {
                 ...formData,
+                channelType: "voice",
                 name: formData.name.trim(),
                 script: formData.flowId ? "" : formData.script,
             };
             const res = await apiRequest("POST", "/api/campaigns", payload);
             const campaign = await res.json();
-            if (csvFile && campaign?.id) {
+            const campId = campaign?.id || campaign?.data?.id || campaign?._id;
+            if (csvFile && campId) {
                 const uploadData = new FormData();
                 uploadData.append("file", csvFile);
                 const authHeader = (await import("@/shared/lib/auth-storage")).AuthStorage.getAuthHeader();
-                const uploadRes = await fetch(`/api/campaigns/${campaign.id}/contacts/upload`, {
+                const uploadRes = await fetch(`/api/campaigns/${campId}/contacts/upload`, {
                     method: "POST",
                     credentials: "include",
                     headers: authHeader ? { Authorization: authHeader } : {},
@@ -274,12 +279,10 @@ export function CreateCallingCampaignForm() {
           </SelectContent>
         </Select>);
         }
-        if (isPlivoAgent) {
+        if (isPlivoAgent && plivoPhoneNumbers.length > 0) {
             return (<Select value={formData.plivoPhoneNumberId} onValueChange={(value) => update("plivoPhoneNumberId", value)}>
           <SelectTrigger className={selectTriggerClass} data-testid="select-phone">
-            <SelectValue placeholder={plivoPhoneNumbers.length === 0
-                    ? "No Plivo numbers available"
-                    : "Select phone number"}/>
+            <SelectValue placeholder="Select phone number"/>
           </SelectTrigger>
           <SelectContent>
             {plivoPhoneNumbers.map((phone) => (<SelectItem key={phone.id} value={phone.id}>

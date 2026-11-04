@@ -70,7 +70,9 @@ export class SuperAdminPhoneController {
 
   static async getById(req, res, next) {
     try {
-      const number = await PhoneNumber.findById(req.params.id)
+      const id = !isNaN(req.params.id) ? parseInt(req.params.id, 10) : req.params.id;
+      if (!id || req.params.id === 'undefined') throw AppError.badRequest('Invalid phone number ID');
+      const number = await PhoneNumber.findById(id)
         .populate('clientId', 'companyName clientCode')
         .populate('assignedAgentId', 'name')
         .lean();
@@ -144,9 +146,11 @@ export class SuperAdminPhoneController {
 
   static async update(req, res, next) {
     try {
+      const id = !isNaN(req.params.id) ? parseInt(req.params.id, 10) : req.params.id;
+      if (!id || req.params.id === 'undefined') throw AppError.badRequest('Invalid phone number ID');
       const { friendlyName, country, type, monthlyRate, forwardingNumber, fallbackNumber } = req.body;
       const updated = await PhoneNumber.findByIdAndUpdate(
-        req.params.id,
+        id,
         {
           $set: {
             friendlyName,
@@ -166,7 +170,7 @@ export class SuperAdminPhoneController {
         req,
         action: 'UPDATE_PHONE_NUMBER',
         resourceType: 'PHONE_NUMBER',
-        resourceId: req.params.id,
+        resourceId: id,
         details: req.body,
       });
 
@@ -178,8 +182,10 @@ export class SuperAdminPhoneController {
 
   static async assign(req, res, next) {
     try {
+      const id = !isNaN(req.params.id) ? parseInt(req.params.id, 10) : req.params.id;
+      if (!id || req.params.id === 'undefined') throw AppError.badRequest('Invalid phone number ID');
       const { clientId } = req.body;
-      const number = await PhoneNumber.findById(req.params.id);
+      const number = await PhoneNumber.findById(id);
       if (!number) throw AppError.notFound('Phone number not found');
 
       if (!clientId || clientId === 'none') {
@@ -194,7 +200,7 @@ export class SuperAdminPhoneController {
           req,
           action: 'UNASSIGN_PHONE_NUMBER',
           resourceType: 'PHONE_NUMBER',
-          resourceId: number._id,
+          resourceId: number.id || number._id,
           details: { phoneNumber: number.phoneNumber },
         });
 
@@ -219,8 +225,8 @@ export class SuperAdminPhoneController {
         req,
         action: 'ASSIGN_PHONE_NUMBER',
         resourceType: 'PHONE_NUMBER',
-        resourceId: number._id,
-        details: { phoneNumber: number.phoneNumber, clientId: targetClient._id },
+        resourceId: number.id || number._id,
+        details: { phoneNumber: number.phoneNumber, clientId: targetClient.id || targetClient._id },
       });
 
       return successResponse(res, number, `Phone number successfully assigned to ${targetClient.companyName}`);
@@ -231,7 +237,9 @@ export class SuperAdminPhoneController {
 
   static async toggleStatus(req, res, next) {
     try {
-      const number = await PhoneNumber.findById(req.params.id);
+      const id = !isNaN(req.params.id) ? parseInt(req.params.id, 10) : req.params.id;
+      if (!id || req.params.id === 'undefined') throw AppError.badRequest('Invalid phone number ID');
+      const number = await PhoneNumber.findById(id);
       if (!number) throw AppError.notFound('Phone number not found');
 
       number.status = number.status === 'ACTIVE' ? 'AVAILABLE' : 'ACTIVE';
@@ -241,7 +249,7 @@ export class SuperAdminPhoneController {
         req,
         action: 'TOGGLE_PHONE_NUMBER_STATUS',
         resourceType: 'PHONE_NUMBER',
-        resourceId: number._id,
+        resourceId: number.id || number._id,
         details: { status: number.status },
       });
 
@@ -253,14 +261,44 @@ export class SuperAdminPhoneController {
 
   static async delete(req, res, next) {
     try {
-      const number = await PhoneNumber.findByIdAndDelete(req.params.id);
+      const id = !isNaN(req.params.id) ? parseInt(req.params.id, 10) : req.params.id;
+      if (!id || req.params.id === 'undefined') throw AppError.badRequest('Invalid phone number ID');
+      const number = await PhoneNumber.findByIdAndDelete(id);
       if (!number) throw AppError.notFound('Phone number not found');
+
+      // Unassign from client assigned_phone_numbers if present
+      if (number.clientId) {
+        try {
+          const { query } = await import('../../config/postgres.js');
+          await query(`
+            UPDATE clients 
+            SET assigned_phone_numbers = (
+              SELECT COALESCE(jsonb_agg(elem), '[]'::jsonb)
+              FROM jsonb_array_elements_text(COALESCE(assigned_phone_numbers, '[]'::jsonb)) AS elem
+              WHERE elem <> $1
+            )
+            WHERE id = $2
+          `, [number.phoneNumber, number.clientId]);
+        } catch {}
+      }
+
+      // Unassign from agents using this phone number
+      try {
+        const { query } = await import('../../config/postgres.js');
+        await query(`UPDATE agents SET phone_number = NULL WHERE phone_number = $1`, [number.phoneNumber]);
+      } catch {}
+
+      // Remove from incoming_connections so it does not auto-resync back into phone_numbers
+      try {
+        const { query } = await import('../../config/postgres.js');
+        await query(`DELETE FROM incoming_connections WHERE phone_number = $1`, [number.phoneNumber]);
+      } catch {}
 
       await AuditLogService.record({
         req,
         action: 'DELETE_PHONE_NUMBER',
         resourceType: 'PHONE_NUMBER',
-        resourceId: req.params.id,
+        resourceId: String(id),
         details: { phoneNumber: number.phoneNumber },
       });
 
