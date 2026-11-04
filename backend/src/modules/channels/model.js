@@ -16,11 +16,28 @@ const channelSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    phoneNumber: {
+      type: String,
+      default: '',
+      trim: true,
+    },
     phoneNumberId: {
       type: String,
       default: '',
     },
     wabaId: {
+      type: String,
+      default: '',
+    },
+    appId: {
+      type: String,
+      default: '',
+    },
+    appSecret: {
+      type: String,
+      default: '',
+    },
+    businessAccountId: {
       type: String,
       default: '',
     },

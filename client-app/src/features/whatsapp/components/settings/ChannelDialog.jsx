@@ -32,6 +32,7 @@ const channelFormSchema = z.object({
     phoneNumberId: z.string().min(1, "Phone Number ID is required"),
     wabaId: z.string().min(1, "Business Account ID is required"),
     appId: z.string().min(1, "App ID is required"),
+    appSecret: z.string().optional(),
     accessToken: z.string().min(1, "Access Token is required"),
     businessAccountId: z.string().optional(),
     mmLiteEnabled: z.boolean().default(false),
@@ -50,6 +51,7 @@ export function ChannelDialog({ open, onOpenChange, editingChannel, onSuccess })
             phoneNumberId: "",
             wabaId: "",
             appId: "",
+            appSecret: "",
             accessToken: "",
             businessAccountId: "",
             mmLiteEnabled: false,
@@ -65,8 +67,9 @@ export function ChannelDialog({ open, onOpenChange, editingChannel, onSuccess })
                 phoneNumberId: editingChannel.phoneNumberId,
                 wabaId: editingChannel.whatsappBusinessAccountId || "",
                 appId: editingChannel.appId || "",
-                accessToken: editingChannel.accessToken,
-                businessAccountId: "",
+                appSecret: editingChannel.appSecret || "",
+                accessToken: editingChannel.accessToken || "",
+                businessAccountId: editingChannel.businessAccountId || "",
                 mmLiteEnabled: editingChannel.mmLiteEnabled || false,
                 mmLiteApiUrl: editingChannel.mmLiteApiUrl || "",
                 mmLiteApiKey: editingChannel.mmLiteApiKey || "",
@@ -79,6 +82,7 @@ export function ChannelDialog({ open, onOpenChange, editingChannel, onSuccess })
                 phoneNumberId: "",
                 wabaId: "",
                 appId: "",
+                appSecret: "",
                 accessToken: "",
                 businessAccountId: "",
                 mmLiteEnabled: false,
@@ -95,6 +99,7 @@ export function ChannelDialog({ open, onOpenChange, editingChannel, onSuccess })
                 phoneNumberId: data.phoneNumberId,
                 whatsappBusinessAccountId: data.wabaId,
                 appId: data.appId,
+                appSecret: data.appSecret,
                 businessAccountId: data.businessAccountId,
                 accessToken: data.accessToken,
                 mmLiteEnabled: data.mmLiteEnabled,
@@ -210,6 +215,17 @@ export function ChannelDialog({ open, onOpenChange, editingChannel, onSuccess })
                   </FormControl>
                   <FormDescription className="text-xs text-slate-400">
                     Your Meta (Facebook) App ID
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>)}/>
+
+            <FormField control={channelForm.control} name="appSecret" render={({ field }) => (<FormItem className="space-y-1.5">
+                  <FormLabel className="text-sm font-semibold text-slate-800">Meta App Secret</FormLabel>
+                  <FormControl>
+                    <Input type="password" placeholder="••••••••" className={inputClass} {...field}/>
+                  </FormControl>
+                  <FormDescription className="text-xs text-slate-400">
+                    Your Meta App Secret
                   </FormDescription>
                   <FormMessage />
                 </FormItem>)}/>

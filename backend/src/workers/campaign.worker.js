@@ -32,24 +32,24 @@ export const processCampaignDispatch = async (campaignId, clientId) => {
   if (campaign.channelType === 'whatsapp') {
     try {
       const { Channel } = await import('../modules/channels/model.js');
-      activeChannel =
-        (await Channel.findOne({ clientId, status: 'CONNECTED' })) ||
-        (await Channel.findOne({ clientId, status: 'Active' })) ||
-        (await Channel.findOne({ status: 'CONNECTED' })) ||
-        (await Channel.findOne({ status: 'Active' })) ||
-        (await Channel.findOne({ clientId })) ||
-        (await Channel.findOne());
+      if (campaign.channelId) {
+        activeChannel = await Channel.findById(campaign.channelId);
+      }
+      if (!activeChannel) {
+        activeChannel =
+          (await Channel.findOne({ clientId, status: 'CONNECTED' })) ||
+          (await Channel.findOne({ clientId, status: 'Active' })) ||
+          (await Channel.findOne({ status: 'CONNECTED' })) ||
+          (await Channel.findOne({ status: 'Active' })) ||
+          (await Channel.findOne({ clientId })) ||
+          (await Channel.findOne());
+      }
     } catch (chErr) {
       logger.warn('[CampaignWorker Channel fetch error]:', chErr?.message || chErr);
     }
 
     if (!activeChannel || !activeChannel.accessToken || !activeChannel.phoneNumberId) {
-      activeChannel = {
-        phoneNumberId: process.env.META_PHONE_NUMBER_ID || '1051965797989920',
-        wabaId: process.env.META_WABA_ID || '877170465308578',
-        accessToken: process.env.META_ACCESS_TOKEN || 'EAAdO7qEObzsBRo4RPaAycf2FZCv9AHcY14I9qp9rPd07jqZCntBt7oOGWkWwURhBOTJRGZBWL5kZB6KIgXhisHHPLOrocgZBxIapI8swmz6ve6yLyuhHDAOH4h756ta1n6p9IvuE9l0L3gEcdm27a84mxX8tHutMRSUQ0Pu5sLTkZCvZA0xoYDKindIo45I9INaugZDZD',
-        channelName: 'test_capermint',
-      };
+      logger.warn(`[CampaignWorker]: No active WhatsApp channel found in database for client ${clientId}. Please connect a channel.`);
     }
 
     if (campaign.templateName && campaign.templateName !== 'WhatsApp Official Template') {

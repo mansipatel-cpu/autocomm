@@ -36,9 +36,11 @@ function normalizeChannel(c) {
     // UI compatibility aliases
     isActive: c.status === 'CONNECTED' || c.status === 'Active',
     name: c.channelName,             // UI reads channel.name
-    phoneNumber: c.phoneNumberId,    // UI reads channel.phoneNumber
+    phoneNumber: c.phoneNumber || c.phoneNumberId,    // UI reads channel.phoneNumber
     whatsappBusinessAccountId: c.wabaId, // UI reads channel.whatsappBusinessAccountId
     appId: c.appId || '',
+    businessAccountId: c.businessAccountId || '',
+    appSecret: c.appSecret ? '••••••••' : '',
   };
 }
 
@@ -65,8 +67,12 @@ export class ChannelService {
 
   static async createChannel(clientId, data) {
     const channelName = data.channelName || data.name;
+    const phoneNumber = data.phoneNumber || data.phone || '';
     const wabaId = data.wabaId || data.whatsappBusinessAccountId || '';
     const phoneNumberId = data.phoneNumberId || '';
+    const appId = data.appId || data.metaAppId || '';
+    const appSecret = data.appSecret || data.metaAppSecret || '';
+    const businessAccountId = data.businessAccountId || '';
     const accessToken = data.accessToken || '';
     const webhookVerifyToken = data.webhookVerifyToken || '';
 
@@ -77,14 +83,18 @@ export class ChannelService {
     const channel = await Channel.create({
       clientId,
       channelName,
+      phoneNumber,
       phoneNumberId,
       wabaId,
+      appId,
+      appSecret,
+      businessAccountId,
       accessToken,
       webhookVerifyToken,
       status: 'CONNECTED',
     });
 
-    return { ...channel, accessToken: undefined };
+    return { ...channel, accessToken: undefined, appSecret: undefined };
   }
 
   static async updateChannel(clientId, id, data) {
@@ -92,16 +102,20 @@ export class ChannelService {
     if (!channel) throw AppError.notFound('Channel not found');
 
     if (data.name || data.channelName) channel.channelName = data.channelName || data.name;
+    if (data.phoneNumber || data.phone) channel.phoneNumber = data.phoneNumber || data.phone;
     if (data.phoneNumberId) channel.phoneNumberId = data.phoneNumberId;
     if (data.wabaId || data.whatsappBusinessAccountId) {
       channel.wabaId = data.wabaId || data.whatsappBusinessAccountId;
     }
+    if (data.appId || data.metaAppId) channel.appId = data.appId || data.metaAppId;
+    if (data.appSecret || data.metaAppSecret) channel.appSecret = data.appSecret || data.metaAppSecret;
+    if (data.businessAccountId) channel.businessAccountId = data.businessAccountId;
     if (data.accessToken) channel.accessToken = data.accessToken;
     if (data.webhookVerifyToken) channel.webhookVerifyToken = data.webhookVerifyToken;
     if (data.status) channel.status = data.status;
 
     await channel.save();
-    return { ...channel.toObject(), accessToken: undefined };
+    return { ...channel.toObject(), accessToken: undefined, appSecret: undefined };
   }
 
   static async sendTestMessage(clientId, channelId, { phoneNumber, message }) {
@@ -169,7 +183,7 @@ export class ChannelService {
       }
       const apps = metaData.data || [];
       const extractAppId = (a) => a.whatsapp_business_api_data?.id ?? a.id;
-      const expectedAppId = FACEBOOK_APP_ID;
+      const expectedAppId = channel.appId || FACEBOOK_APP_ID;
       let subscribed;
       if (expectedAppId) {
         subscribed = apps.some((a) => extractAppId(a) === expectedAppId);

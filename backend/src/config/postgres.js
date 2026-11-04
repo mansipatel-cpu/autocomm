@@ -53,6 +53,10 @@ export const ensureSchemaAlignment = async () => {
     const statements = [
       `ALTER TABLE clients ADD COLUMN IF NOT EXISTS admin_name VARCHAR(255);`,
       `ALTER TABLE clients ADD COLUMN IF NOT EXISTS admin_email VARCHAR(255);`,
+      `ALTER TABLE channels ADD COLUMN IF NOT EXISTS phone_number VARCHAR(64) DEFAULT '';`,
+      `ALTER TABLE channels ADD COLUMN IF NOT EXISTS app_id VARCHAR(64) DEFAULT '';`,
+      `ALTER TABLE channels ADD COLUMN IF NOT EXISTS app_secret VARCHAR(128) DEFAULT '';`,
+      `ALTER TABLE channels ADD COLUMN IF NOT EXISTS business_account_id VARCHAR(64) DEFAULT '';`,
       `ALTER TABLE phone_numbers ADD COLUMN IF NOT EXISTS country VARCHAR(32) DEFAULT 'US';`,
       `ALTER TABLE phone_numbers ADD COLUMN IF NOT EXISTS type VARCHAR(32) DEFAULT 'Local';`,
       `ALTER TABLE phone_numbers ADD COLUMN IF NOT EXISTS monthly_rate NUMERIC(10, 2) DEFAULT 15.00;`,
