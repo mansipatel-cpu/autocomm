@@ -330,6 +330,20 @@ export const processCampaignDispatch = async (campaignId, clientId) => {
           ],
           creditsUsed: 1,
         });
+
+        // Automatically capture / update lead in Quick CRM
+        try {
+          const { CrmService } = await import('../modules/crm/service.js');
+          await CrmService.captureCallLead(clientId, {
+            name: recipient.name || 'Recipient',
+            phoneNumber: recipient.phoneNumber || recipient.phone,
+            isAnswered,
+            summary: `Outbound calling campaign "${campaign.name}" call to ${recipient.name || recipient.phoneNumber}. ${isAnswered ? 'Call connected and completed successfully.' : 'Recipient line busy or unreachable.'}`,
+            transcript: isAnswered ? 'Call connected and completed successfully.' : 'Call line busy or unreachable',
+          });
+        } catch (crmErr) {
+          logger.warn('[CRM capture lead error]:', crmErr?.message || crmErr);
+        }
       } catch (recErr) {
         logger.warn('[CallRecord create error]:', recErr?.message || recErr);
       }

@@ -8,6 +8,7 @@ router.use(authenticate);
 
 router.get('/', CallController.listCalls);
 router.post('/test-call', CallController.createTestCall);
+router.get('/:id/recording', CallController.getRecording);
 router.get('/:id', CallController.getCall);
 
 export default router;

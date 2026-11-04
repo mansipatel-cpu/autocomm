@@ -1,26 +1,24 @@
 import { Router } from 'express';
-import { CrmController } from './controller.js';
-import { CrmLead } from './model.js';
+import { CrmService, AI_CATEGORIES } from './service.js';
+import { query } from '../../config/database.js';
 import { authenticate } from '../../common/middlewares/auth.middleware.js';
 
 const router = Router();
 
 router.use(authenticate);
 
-// ----------------- Pipeline & Analytics -----------------
-router.get('/', CrmController.getPipeline);
-router.get('/pipeline', CrmController.getPipeline);
-router.get('/contacts', (_req, res) => res.json([]));
-router.get('/deals', (_req, res) => res.json([]));
-router.get('/tags', (_req, res) => res.json([]));
+// ----------------- Stages & Preferences -----------------
 router.get('/stages', (_req, res) =>
   res.json([
-    { id: 'new', name: 'new', color: '#10B981' },
-    { id: 'hot', name: 'hot', color: '#EF4444' },
-    { id: 'warm', name: 'warm', color: '#F59E0B' },
-    { id: 'cold', name: 'cold', color: '#3B82F6' },
+    { id: 'appointment_booked', name: 'Appointment Booked', color: '#10B981' },
+    { id: 'form_submitted', name: 'Form Submitted', color: '#3B82F6' },
+    { id: 'call_transfer', name: 'Call Transfer', color: '#8B5CF6' },
+    { id: 'need_follow_up', name: 'Need Follow Up', color: '#F97316' },
+    { id: 'hot', name: 'Hot Lead', color: '#EF4444' },
+    { id: 'warm', name: 'Warm Lead', color: '#F59E0B' },
   ])
 );
+
 router.get('/preferences', (_req, res) =>
   res.json({
     hideLeadsWithoutPhone: false,
@@ -28,176 +26,257 @@ router.get('/preferences', (_req, res) =>
     warmScoreThreshold: 50,
     hiddenCategories: [],
     colorOverrides: {},
-    columnOrder: [],
+    columnOrder: [
+      'appointment_booked',
+      'form_submitted',
+      'call_transfer',
+      'need_follow_up',
+      'hot',
+      'warm',
+    ],
+    columnSortPreferences: {},
   })
 );
+
 router.patch('/preferences', (_req, res) => res.json({ success: true }));
 router.patch('/preferences/order', (_req, res) => res.json({ success: true }));
 router.patch('/preferences/color/:id', (_req, res) => res.json({ success: true }));
 router.patch('/preferences/sort/:id', (_req, res) => res.json({ success: true }));
-router.get('/analytics', (_req, res) =>
+
+router.get('/tags', async (req, res) => {
+  res.json([
+    'Verified Call',
+    'High Intent',
+    'Appointment',
+    'Enterprise',
+    'Web Form',
+    'Inbound',
+    'Call Transfer',
+    'Outbound Campaign',
+    'Retry Needed',
+    'Warm',
+    'Follow Up',
+  ]);
+});
+
+router.get('/analytics', async (req, res) => {
+  const clientId = req.clientId || req.user?.clientId || 3;
+  const counts = await CrmService.getCategoryCounts(clientId);
   res.json({
-    totalLeads: 0,
-    conversionRate: 0,
-    stageBreakdown: {},
-  })
-);
-
-// ----------------- AI Categorized Leads for CRM View -----------------
-router.get('/leads/categorized', async (req, res) => {
-  try {
-    const clientId = req.clientId || req.user?.clientId || 1;
-    const { sortBy = 'newest', limit = 50, offset = 0, aiCategory, search } = req.query;
-    const lLimit = parseInt(limit, 10) || 50;
-    const lOffset = parseInt(offset, 10) || 0;
-
-    const filter = { clientId };
-    if (aiCategory && aiCategory !== 'all') {
-      filter.stage = aiCategory;
-    }
-    if (search) {
-      filter.name = { $regex: search, $options: 'i' };
-    }
-
-    const sortOrder = sortBy === 'oldest' ? { createdAt: 1 } : { createdAt: -1 };
-    const allLeads = (await CrmLead.find(filter).sort(sortOrder)) || [];
-    const total = allLeads.length;
-    const paged = allLeads.slice(lOffset, lOffset + lLimit);
-    const hasMore = lOffset + paged.length < total;
-
-    return res.json({
-      leads: paged,
-      hasMore,
-      total,
-    });
-  } catch (_e) {
-    return res.json({
-      leads: [],
-      hasMore: false,
-      total: 0,
-    });
-  }
+    totalLeads: counts.total,
+    conversionRate: counts.total > 0 ? Math.round(((counts.counts.hot + counts.counts.appointment_booked) / counts.total) * 100) : 0,
+    stageBreakdown: counts.counts,
+  });
 });
 
-router.get('/leads/category-counts', async (req, res) => {
+// ----------------- AI Kanban & Categorized Leads -----------------
+router.get('/leads/ai-kanban', async (req, res, next) => {
   try {
-    const clientId = req.clientId || req.user?.clientId || 1;
-    const leads = (await CrmLead.find({ clientId })) || [];
-    const counts = {
-      hot: 0,
-      warm: 0,
-      cold: 0,
-      not_interested: 0,
-      follow_up: 0,
-      converted: 0,
-      total: leads.length,
-    };
-    for (const lead of leads) {
-      const cat = (lead.aiCategory || lead.stage || 'warm').toLowerCase();
-      if (counts[cat] !== undefined) {
-        counts[cat]++;
-      } else {
-        counts.warm++;
-      }
-    }
-    return res.json(counts);
-  } catch (_e) {
-    return res.json({
-      hot: 0,
-      warm: 0,
-      cold: 0,
-      not_interested: 0,
-      follow_up: 0,
-      converted: 0,
-      total: 0,
-    });
-  }
-});
-
-router.get('/leads/ai-kanban', async (req, res) => {
-  try {
-    const clientId = req.clientId || req.user?.clientId || 1;
-    const leads = (await CrmLead.find({ clientId }).sort({ createdAt: -1 })) || [];
-    const kanban = {
-      hot: [],
-      warm: [],
-      cold: [],
-      not_interested: [],
-      follow_up: [],
-      converted: [],
-    };
-    for (const lead of leads) {
-      const cat = (lead.aiCategory || lead.stage || 'warm').toLowerCase();
-      if (kanban[cat]) {
-        kanban[cat].push(lead);
-      } else {
-        kanban.warm.push(lead);
-      }
-    }
+    const clientId = req.clientId || req.user?.clientId || 3;
+    const kanban = await CrmService.getAIKanban(clientId);
     return res.json(kanban);
-  } catch (_e) {
-    return res.json({
-      hot: [],
-      warm: [],
-      cold: [],
-      not_interested: [],
-      follow_up: [],
-      converted: [],
-    });
+  } catch (err) {
+    next(err);
   }
 });
 
-router.post('/leads/backfill-categories', (_req, res) => {
-  res.json({ success: true, updated: 0, total: 0 });
-});
-
-router.post('/leads/bulk/ai-category', (_req, res) => {
-  res.json({ success: true });
-});
-
-router.post('/leads/bulk/tags', (_req, res) => {
-  res.json({ success: true });
-});
-
-router.post('/leads/bulk/delete', (_req, res) => {
-  res.json({ success: true });
-});
-
-router.get('/export/csv', (_req, res) => {
-  res.setHeader('Content-Type', 'text/csv');
-  res.setHeader('Content-Disposition', 'attachment; filename="leads.csv"');
-  res.send('Name,Phone,Email,Stage,DealValue\n');
-});
-
-// ----------------- Standard Leads CRUD -----------------
-router.get('/leads', async (req, res) => {
+router.get('/leads/category-counts', async (req, res, next) => {
   try {
-    const clientId = req.clientId || req.user?.clientId || 1;
-    const leads = (await CrmLead.find({ clientId }).sort({ createdAt: -1 })) || [];
-    return res.json(leads);
-  } catch (_e) {
-    return res.json([]);
+    const clientId = req.clientId || req.user?.clientId || 3;
+    const counts = await CrmService.getCategoryCounts(clientId);
+    return res.json(counts);
+  } catch (err) {
+    next(err);
   }
 });
 
-router.post('/leads', CrmController.createLead);
-router.put('/leads/:id', CrmController.updateLead);
-router.patch('/leads/:id', async (req, res) => {
+router.get('/leads/categorized', async (req, res, next) => {
   try {
-    const clientId = req.clientId || req.user?.clientId || 1;
-    const lead = await CrmLead.findOneAndUpdate(
-      { _id: req.params.id, clientId },
-      { $set: req.body },
-      { new: true }
+    const clientId = req.clientId || req.user?.clientId || 3;
+    const result = await CrmService.listCategorizedLeads(clientId, req.query);
+    return res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/leads/backfill-categories', async (req, res, next) => {
+  try {
+    const clientId = req.clientId || req.user?.clientId || 3;
+    const counts = await CrmService.getCategoryCounts(clientId);
+    return res.json({ success: true, updated: counts.total, total: counts.total });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ----------------- Leads List & Actions -----------------
+router.get('/leads', async (req, res, next) => {
+  try {
+    const clientId = req.clientId || req.user?.clientId || 3;
+    const rows = await query(
+      'SELECT * FROM crm_leads WHERE client_id = $1 ORDER BY updated_at DESC',
+      [clientId]
     );
-    res.json(lead || { id: req.params.id, ...req.body });
-  } catch (_e) {
-    res.json({ id: req.params.id, ...req.body });
+    const formatted = (rows.rows || []).map(CrmService.formatLead);
+    return res.json(formatted);
+  } catch (err) {
+    next(err);
   }
 });
 
-router.put('/leads/:id/stage', CrmController.updateStage);
-router.patch('/leads/:id/ai-category', (_req, res) => res.json({ success: true }));
-router.delete('/leads/:id', CrmController.deleteLead);
+router.post('/leads', async (req, res, next) => {
+  try {
+    const clientId = req.clientId || req.user?.clientId || 3;
+    const { name, phoneNumber, phone, email, company, dealValue, notes, stage, aiCategory } = req.body;
+    const targetCategory = aiCategory || stage || 'warm';
+
+    const ins = await query(
+      `INSERT INTO crm_leads (client_id, name, email, phone_number, company, stage, deal_value, notes, custom_fields, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
+       RETURNING *`,
+      [
+        clientId,
+        name || 'New Lead',
+        email || '',
+        phoneNumber || phone || '',
+        company || '',
+        targetCategory,
+        parseFloat(dealValue || '0'),
+        notes || '',
+        JSON.stringify({
+          aiCategory: targetCategory,
+          leadScore: targetCategory === 'hot' ? 95 : 75,
+          tags: ['Manual Lead'],
+          lastCallAt: new Date(),
+        }),
+      ]
+    );
+
+    return res.status(201).json(CrmService.formatLead(ins.rows[0]));
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/leads/bulk/ai-category', async (req, res, next) => {
+  try {
+    const clientId = req.clientId || req.user?.clientId || 3;
+    const { ids, aiCategory } = req.body;
+    if (Array.isArray(ids) && ids.length > 0 && aiCategory) {
+      for (const id of ids) {
+        await CrmService.updateLeadCategory(clientId, id, aiCategory);
+      }
+    }
+    return res.json({ success: true, count: ids?.length || 0 });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/leads/bulk/tags', async (req, res, next) => {
+  try {
+    const clientId = req.clientId || req.user?.clientId || 3;
+    const { ids, tags } = req.body;
+    if (Array.isArray(ids) && ids.length > 0 && Array.isArray(tags)) {
+      for (const id of ids) {
+        const row = await query('SELECT custom_fields FROM crm_leads WHERE id = $1 AND client_id = $2', [id, clientId]);
+        if (row.rows[0]) {
+          const cf = typeof row.rows[0].custom_fields === 'string' ? JSON.parse(row.rows[0].custom_fields || '{}') : (row.rows[0].custom_fields || {});
+          cf.tags = Array.from(new Set([...(cf.tags || []), ...tags]));
+          await query('UPDATE crm_leads SET custom_fields = $1 WHERE id = $2', [JSON.stringify(cf), id]);
+        }
+      }
+    }
+    return res.json({ success: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/leads/bulk/delete', async (req, res, next) => {
+  try {
+    const clientId = req.clientId || req.user?.clientId || 3;
+    const { ids } = req.body;
+    if (Array.isArray(ids) && ids.length > 0) {
+      await query('DELETE FROM crm_leads WHERE id = ANY($1) AND client_id = $2', [ids, clientId]);
+    }
+    return res.json({ success: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.patch('/leads/:id', async (req, res, next) => {
+  try {
+    const clientId = req.clientId || req.user?.clientId || 3;
+    const leadId = req.params.id;
+    if (req.body.aiCategory || req.body.stage) {
+      const updated = await CrmService.updateLeadCategory(
+        clientId,
+        leadId,
+        req.body.aiCategory || req.body.stage
+      );
+      return res.json(updated);
+    }
+    return res.json({ success: true, id: leadId });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.patch('/leads/:id/ai-category', async (req, res, next) => {
+  try {
+    const clientId = req.clientId || req.user?.clientId || 3;
+    const updated = await CrmService.updateLeadCategory(
+      clientId,
+      req.params.id,
+      req.body.aiCategory || 'warm'
+    );
+    return res.json(updated);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.delete('/leads/:id', async (req, res, next) => {
+  try {
+    const clientId = req.clientId || req.user?.clientId || 3;
+    await query('DELETE FROM crm_leads WHERE id = $1 AND client_id = $2', [parseInt(req.params.id, 10), clientId]);
+    return res.json({ success: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/export/csv', async (req, res, next) => {
+  try {
+    const clientId = req.clientId || req.user?.clientId || 3;
+    const rows = await query('SELECT * FROM crm_leads WHERE client_id = $1 ORDER BY created_at DESC', [clientId]);
+    const leads = (rows.rows || []).map(CrmService.formatLead);
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="leads.csv"');
+
+    const headers = ['ID', 'Name', 'Phone', 'Email', 'Company', 'Category', 'LeadScore', 'DealValue', 'Notes'];
+    const lines = [headers.join(',')];
+    for (const l of leads) {
+      lines.push([
+        l.id,
+        `"${l.name.replace(/"/g, '""')}"`,
+        `"${l.phone.replace(/"/g, '""')}"`,
+        `"${l.email.replace(/"/g, '""')}"`,
+        `"${l.company.replace(/"/g, '""')}"`,
+        `"${l.aiCategory}"`,
+        l.leadScore,
+        l.dealValue,
+        `"${l.notes.replace(/"/g, '""')}"`,
+      ].join(','));
+    }
+    return res.send(lines.join('\n'));
+  } catch (err) {
+    next(err);
+  }
+});
 
 export default router;

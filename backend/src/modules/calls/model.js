@@ -1,21 +1,5 @@
 import mongoose from '../../common/db/postgres-model.js';
 
-const transcriptLineSchema = new mongoose.Schema({
-  speaker: {
-    type: String,
-    enum: ['agent', 'user'],
-    required: true,
-  },
-  text: {
-    type: String,
-    required: true,
-  },
-  timestampSeconds: {
-    type: Number,
-    default: 0,
-  },
-});
-
 const callRecordSchema = new mongoose.Schema(
   {
     clientId: {
@@ -49,13 +33,11 @@ const callRecordSchema = new mongoose.Schema(
     },
     direction: {
       type: String,
-      enum: ['inbound', 'outbound'],
       default: 'outbound',
       index: true,
     },
     status: {
       type: String,
-      enum: ['COMPLETED', 'BUSY', 'NO_ANSWER', 'FAILED'],
       default: 'COMPLETED',
       index: true,
     },
@@ -67,24 +49,27 @@ const callRecordSchema = new mongoose.Schema(
       type: String,
       default: 'https://assets.autocomm.io/recordings/sample_call.mp3',
     },
-    transcript: {
-      type: [transcriptLineSchema],
-      default: [],
+    sentiment: {
+      type: String,
+      default: 'Positive',
     },
-    aiSummary: {
+    summary: {
       type: String,
       default: '',
     },
-    sentiment: {
-      type: String,
-      enum: ['Positive', 'Neutral', 'Negative'],
-      default: 'Positive',
+    transcripts: {
+      type: Array,
+      default: [],
     },
-    costCredits: {
+    creditsUsed: {
       type: Number,
-      default: 1.5,
+      default: 1.0,
     },
-    callDate: {
+    createdAt: {
+      type: Date,
+      default: Date.now,
+    },
+    updatedAt: {
       type: Date,
       default: Date.now,
     },
@@ -93,7 +78,5 @@ const callRecordSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
-
-callRecordSchema.index({ clientId: 1, callDate: -1 });
 
 export const CallRecord = mongoose.model('CallRecord', callRecordSchema);
